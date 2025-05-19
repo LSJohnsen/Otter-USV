@@ -2,7 +2,7 @@
 
 ### Bachelor thesis: To run the software standalone or the simulator, run the main.py file.
 
-###  ACIT 4830 Special Robotics & Control Subject: To run DRL models, run Otter_dl. (Related changes to the simulator are saved under Otter_simulator_DRL)
+###  ACIT 4830 - Special Robotics & Control Subject: To run DRL models, run Otter_dl. (Related changes to the simulator are saved under Otter_simulator_DRL)
 
 
 

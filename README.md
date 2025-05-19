@@ -1,10 +1,8 @@
 # Otter USV Repo
-## Bachelor Thesis - ACIT 4830 Special Robotics & Control Subject
 
+### Bachelor thesis: To run the software standalone or the simulator, run the main.py file.
 
-### To run the software standalone or the simulator, run the main.py file.
-
-### To run DRL models, run Otter_dl. (Related changes to the simulator are saved under Otter_simulator_DRL)
+###  ACIT 4830 Special Robotics & Control Subject: To run DRL models, run Otter_dl. (Related changes to the simulator are saved under Otter_simulator_DRL)
 
 
 

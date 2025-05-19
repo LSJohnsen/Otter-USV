@@ -2,11 +2,24 @@ import numpy as np
 import math
 from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
 import pandas as pd
+import pathlib
 from numba import jit, cuda
 
 
+
 class OtterSimDRL():
-    def __init__(self, target_list, use_target_coordinates, surge_target_radius, use_moving_target, moving_target_start, moving_target_increase, end_when_last_target_reached, verbose, store_force_file, circular_target):
+    def __init__(self, 
+                 target_list, 
+                 use_target_coordinates, 
+                 surge_target_radius, 
+                 use_moving_target, 
+                 moving_target_start, 
+                 moving_target_increase, 
+                 end_when_last_target_reached, 
+                 verbose, 
+                 store_force_file, 
+                 circular_target, 
+                 ):
 
         # Variable initializations:
         self.use_target_coordinates = use_target_coordinates
@@ -20,6 +33,7 @@ class OtterSimDRL():
         self.verbose = verbose
         self.store_force_file = store_force_file
         self.circular_target = circular_target
+    
 
         self.max_force = 200                                                                    # Combined max force in yaw and surge. Used for saturation of control forces
         self.V_c = 0.0                                                                          # Starting speed (m/s)
@@ -35,7 +49,8 @@ class OtterSimDRL():
         self.tau_N = 0.0
 
 
-        self.throttledf = pd.read_csv('lib/throttle_map_v2_noneg.csv', index_col=0, sep=";")
+        csv_path = pathlib.Path(__file__).parent / "lib" / "throttle_map_v2_noneg.csv"
+        self.throttledf = pd.read_csv(csv_path, index_col=0, sep=";")
         self.throttledf = self.throttledf.dropna(axis=1, how='all')
         # Drop rows where all values are NaN
         self.throttledf = self.throttledf.dropna(axis=0, how='all')
@@ -211,9 +226,8 @@ class OtterSimDRL():
 
     def simulate_step(self, sampleTime, otter, tau_X, tau_N):
         
-    
+        self.simulation_time = getattr(self, 'simulation_time', 0.0) + sampleTime
 
-        
         action = np.array([tau_X, tau_N], dtype=float)
         norm = np.linalg.norm(action)  # Direct control forces from otter_dl.py
 
@@ -294,19 +308,14 @@ class OtterSimDRL():
         # Update moving target every step
         if self.use_moving_target:
             if self.circular_target:
-                # Update time if not already initialized
-                if not hasattr(self, 'simulation_time'):
-                    self.simulation_time = 0.0
-                self.simulation_time += sampleTime
 
                 #Target circular path
-                radius = 40 
-                omega = 1.5 / 50
+                omega = 1.5 / 20
                 theta = omega * self.simulation_time
 
                 # Circle center (0, 0) by default
-                self.moving_target[0] = 0 + radius * np.cos(theta)
-                self.moving_target[1] = 0 + radius * np.sin(theta)
+                self.moving_target[0] = 0 + 20 * np.cos(theta)
+                self.moving_target[1] = 0 + 20 * np.sin(theta)
 
             else:
                 # Linear movement target
@@ -325,7 +334,7 @@ class OtterSimDRL():
         self.distance_to_target = distance_to_target
         self.yaw_setpoint = angle_to_target
 
-        return self.eta.copy(), self.nu.copy(), target.copy(), distance_to_target, heading_error 
+        return self.eta.copy(), self.nu.copy(), target.copy(), distance_to_target, heading_error, self.u_actual
 
 
     def simulate(self, N, sampleTime, otter, tau_X, tau_N):
@@ -659,4 +668,5 @@ class OtterSimDRL():
 
 
         return nu, u_actual
+
 

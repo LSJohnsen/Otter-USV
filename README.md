@@ -1,6 +1,6 @@
 # Otter USV Repo
 
-### Introduction to robotics: Application Programming interface for the Otter USV
+### ELVE 3160 - Introduction to robotics: Application Programming interface for the Otter USV
 
 ### Bachelor thesis: To run the software standalone or the simulator, run the main.py file.
 

@@ -3,7 +3,7 @@ import math
 from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
 import pandas as pd
 from numba import jit, cuda
-
+from pathlib import Path
 
 class otter_simulator():
 
@@ -34,9 +34,12 @@ class otter_simulator():
 
         self.tau_X = 0.0
         self.tau_N = 0.0
+        
+        
+        HERE = Path(__file__).resolve().parent
+        csv_path = HERE / "lib" / "throttle_map_v2_noneg.csv"
 
-
-        self.throttledf = pd.read_csv('lib/throttle_map_v2_noneg.csv', index_col=0, sep=";")
+        self.throttledf = pd.read_csv(csv_path, index_col=0, sep=";")
         self.throttledf = self.throttledf.dropna(axis=1, how='all')
         # Drop rows where all values are NaN
         self.throttledf = self.throttledf.dropna(axis=0, how='all')

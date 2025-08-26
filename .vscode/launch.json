@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Otter main",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/Otter_API/main.py",
+      "cwd": "${workspaceFolder}/Otter_API",
+      "console": "integratedTerminal"
+    }
+  ]
+}

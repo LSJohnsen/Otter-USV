@@ -24,7 +24,7 @@ class otter():
         self.observer_coordinates = [59.908642666666665, 10.71945885, 0.0]
 
 
-        # Creates an empty dictionary for the values
+        # Creates an empty dictionary for the values'
         self.values = {}
         self.sorted_values = {}
 

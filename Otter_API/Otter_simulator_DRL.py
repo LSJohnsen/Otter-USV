@@ -4,6 +4,7 @@ from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
 import pandas as pd
 import pathlib
 from numba import jit, cuda
+from pathlib import Path
 
 
 
@@ -49,7 +50,9 @@ class OtterSimDRL():
         self.tau_N = 0.0
 
 
-        csv_path = pathlib.Path(__file__).parent / "lib" / "throttle_map_v2_noneg.csv"
+        HERE = Path(__file__).resolve().parent
+        csv_path = HERE / "lib" / "throttle_map_v2_noneg.csv"
+
         self.throttledf = pd.read_csv(csv_path, index_col=0, sep=";")
         self.throttledf = self.throttledf.dropna(axis=1, how='all')
         # Drop rows where all values are NaN

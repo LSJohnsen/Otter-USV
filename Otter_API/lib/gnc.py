@@ -13,6 +13,7 @@ Author:     Thor I. Fossen
 import numpy as np
 import math
 
+
 #------------------------------------------------------------------------------
 
 def ssa(angle):
@@ -230,8 +231,6 @@ def crossFlowDrag(L,B,T,nu_r):
     tau_crossflow = np.array([0, Yh, 0, 0, 0, Nh],float)
 
     return tau_crossflow
-
-#------------------------------------------------------------------------------
 
 def forceLiftDrag(b,S,CD_0,alpha,U_r):
     """

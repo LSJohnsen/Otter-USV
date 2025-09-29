@@ -167,7 +167,6 @@ def usv_params_6dof(starting_yaw_angle: float = 0.0) -> dict:
         "D6":    ca.DM(D),
         "G6":    ca.DM(G),
 
-        # convenience: 3DOF reduction (surge, sway, yaw)
         "R3": ca.DM([[1,0,0,0,0,0],
                      [0,1,0,0,0,0],
                      [0,0,0,0,0,1]]),

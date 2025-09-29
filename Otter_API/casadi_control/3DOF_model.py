@@ -1,25 +1,26 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Find alternative method
 
 import casadi as ca
-import numpy as np
 from casadi_control.lib.casadi_utils import B2N, CRB6sx, CA3sx, crossFlowDrag3
 from casadi_control.lib.usv_params import usv_params_6dof
 
 ''' 
 Otter USV 3-DOF CasADi model
+    Constants and functions are taken from the simulator to convert to casadi build rather instead of numpy
+    see: Otter_simulator, casadi_control/lib/casadi_utils, ../../usv_params
 '''
 
 params = usv_params_6dof()
 
 class Otter3DOF:
-    def __init__(self, params, step):
+    def __init__(self, params, sampleTime):
 
 
-        self.reduced = ca.DM([[1,0,0,0,0,0], # Selects 3DOF parameters from 6DOF matrix  
+        self.reduced = ca.DM([[1,0,0,0,0,0], # Selects 3DOF parameters from sim 6DOF matrix 
                         [0,1,0,0,0,0],         # reduced @ X_6DOF @ reduced.T = X_3DOF 
-                        [0,0,0,0,0,1]])        # pick rows 1,2,6 @ X @ pick colums 1,2,6 
+                        [0,0,0,0,0,1]])        # rows 1,2,6 @ X @ pick colums 1,2,6 
 
 
         # 6DOF mass & damping to 3DOF
@@ -32,14 +33,14 @@ class Otter3DOF:
         self.H_rg = params['H_rg'] # CG to CO transfrom 
         self.m_total = params['m_total'] # mass
         self.MA3 = self.reduced @ params['MA6'] @ self.reduced.T # 
-        self.dt = step # Integration step
+        self.dt = sampleTime # Integration step
 
         # ---
         eta = ca.SX.sym('eta', 3) # [x, y, psi]
-        nu =  ca.SX.sym('nu', 3) # [u, v, r]
-        tau =  ca.SX.sym('u', 3) # [X,Y,N]
+        nu =  ca.SX.sym('nu', 3) # [u,v,r]
+        u =  ca.SX.sym('u', 3) # [u1, u2] 
         nu_c = ca.SX.sym('nu_c', 3) # Currents in body
-        x = ca.vertcat(eta, nu) # 
+        x = ca.vertcat(eta, nu) # [x,y,psi,u,v,r]
         p    = nu_c
 
         J = B2N(eta[2]) #Body to NED transfrom 
@@ -73,13 +74,13 @@ class Otter3DOF:
 
         ode = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
                         ca.solve(self.M3,           
-                        tau - C3 @ nu - tau_d - tau_cfd)  
+                        u - C3 @ nu - tau_d - tau_cfd)  
                         ) 
         
         # DAE
         dae = {
         'x': x,                         # states (eta, nu)
-        'p': ca.vertcat(tau, p),        # parameters (inputs + currents) CHANGE TO ONLY CONTROLS OR ADD FILTER/ESTIMATION
+        'p': ca.vertcat(u, p),        # parameters (inputs + currents) CHANGE TO ONLY CONTROLS OR ADD FILTER/ESTIMATION
         'ode': ode                      # dynamics (x, u, p)
         }    
         
@@ -89,24 +90,20 @@ class Otter3DOF:
         {'tf': self.dt, 'simplify': True, 'number_of_finite_elements': 4}
         )
      
-        # Function F(xk,uk,pk)->F(k+1)
-        self.F = ca.Function(
-        'F',
-        [x, tau, p],
-        [integrator(x0=x, p=ca.vertcat(tau, p))['xf']]
-        ) # continous time function ([state vector, control input, nu_c], rhs_function)
 
+        # continous time function ([state vector, control input, nu_c], rhs_function)
+        f = ca.Function('f_ct', [x, u, p], [ode])
+        return f
         
-
 
 test = Otter3DOF(params, 1)
 
 # Testing, x = [eta,nu] = [position, velocities]
 x0   = ca.DM.zeros(6, 1)      # [x, y, psi, u, v, r]
 
-tau  = ca.DM([100, 0, 50])    # [X, Y, N]
+u  = ca.DM([100, 0, 50])    # [X, Y, N]
 nu_c = ca.DM.zeros(3, 1)      # currents in body frame
 
-x1 = test.F(x0, tau, nu_c)    # one integration step
-x2 = x1 + test.F(x0, tau, nu_c)
-x3 = x2 + test.F(x0, tau, nu_c)
+x1 = test.F(x0, u, nu_c)    # one integration step
+x2 = x1 + test.F(x0, u, nu_c)
+x3 = x2 + test.F(x0, u, nu_c)

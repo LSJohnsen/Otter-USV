@@ -1,5 +1,5 @@
 import Otter_api
-import Otter_simulator_DRL
+import DRL_control.Otter_simulator_DRL as Otter_simulator_DRL
 from lib.plotTimeSeries import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,7 +33,7 @@ target_radius = 0.5                                                             
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
-animate_path = False                                                                        
+animate_path = False                                                                                    
 training_timesteps = 30000000                                                                           # Set timesteps (10mil-50mil+ depending on straight/cirle)
 
 start_north = -20                                                                                       # Target north position from referance point
@@ -51,7 +51,7 @@ side_target_speed = 1                                                           
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
-browser = 'chrome'      
+browser = 'chrome'                                                                                      
 
 
 
@@ -71,7 +71,7 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
 print("initialized ottter api and simulator")
 
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
-otter.dimU = len(otter.controls)                                                                        
+otter.dimU = len(otter.controls)
 
 
 class OtterEnv(gym.Env):

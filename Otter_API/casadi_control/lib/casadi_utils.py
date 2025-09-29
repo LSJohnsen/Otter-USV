@@ -1,10 +1,16 @@
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 import casadi as ca
-from lib.gnc import *
+from lib.gnc import Hoerner
 
 '''
 Utils from otter_simulator and GNC for use with CasADi:
 '''
+
 
 def Smtrx(a):
     #S = Smtrx(a) computes the 3x3 vector skew-symmetric matrix S(a) = -S(a)'. (Fossen)
@@ -23,7 +29,7 @@ def B2N(psi):
     )
 
 def CRB6sx(nu6, m_total, Ig, H_rg):
-        #Rigid-body Coriolis/centripetal in CO (see otter_simulator/gnc) 
+        #Rigid-body Coriolis/centripetal in CO (otter_simulator/gnc) 
         omega = nu6[3:6]
         CRB_CG = ca.SX.zeros(6,6)
         CRB_CG[0:3,0:3] = m_total * Smtrx(omega)
@@ -31,7 +37,7 @@ def CRB6sx(nu6, m_total, Ig, H_rg):
         return H_rg.T @ CRB_CG @ H_rg
 
 def CA3sx(MA3, nu3):
-     #Added-mass Coriolis for 3DOF (see otter_simulator/gnc)
+     #Added-mass Coriolis for 3DOF (sim/gnc)
     C = ca.SX.zeros(3,3)
     C[0,2] = -MA3[1,1]*nu3[1] - MA3[1,2]*nu3[2]
     C[1,2] =  MA3[0,0]*nu3[0]
@@ -41,10 +47,9 @@ def CA3sx(MA3, nu3):
 
 
 def crossFlowDrag3(L, B, T, nu_r):
-    """
-    3-DOF cross-flow drag using strip theory (Fossen).
-    Returns [X, Y, N] in body
-    """
+   
+    # 3-DOF cross-flow drag using strip theory (sim/gnc).
+    
     rho = 1026.0
     n   = 20
     dx  = L / n

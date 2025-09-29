@@ -2,12 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run 3DOF_model as module",
+      "name": "Python: Run current file (workspace root)",
       "type": "python",
       "request": "launch",
-      "module": "casadi_control.3DOF_model",
-      "cwd": "${workspaceFolder}",
+      "program": "${file}",
       "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
       "justMyCode": true
     }
   ]

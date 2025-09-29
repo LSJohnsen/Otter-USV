@@ -21,7 +21,7 @@ class otter_simulator():
         self.verbose = verbose
         self.store_force_file = store_force_file
         self.circular_target = circular_target
-
+        
         self.max_force = 200                                                                    # Combined max force in yaw and surge. Used for saturation of control forces
         self.V_c = 0.0                                                                          # Starting speed (m/s)
         starting_yaw_angle = 0.0                                                                # Starting yaw angle
@@ -72,8 +72,8 @@ class otter_simulator():
         self.dimU = len(self.controls)
 
         # Vehicle parameters
-        m = 62.0                                            # mass (kg)
-        self.mp = 0.0                                       # Payload (kg)
+        m = 55.0                                            # mass (kg)
+        self.mp = 25.0                                       # Payload (kg)
         self.m_total = m + self.mp
         self.rp = np.array([0.05, 0, -0.35], float)         # location of payload (m)
         rg = np.array([0.2, 0, -0.2], float)                # CG for hull only (m)
@@ -174,7 +174,6 @@ class otter_simulator():
         self.D = -np.diag([Xu, Yv, Zw, Kp, Mq, Nr])
 
         self.mass = m + self.mp
-
 
     def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID):
 

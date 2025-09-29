@@ -1,26 +1,17 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import casadi as ca
 import numpy as np
-from casadi_utils import *
-from Otter_simulator import otter_simulator
+from casadi_control.lib.casadi_utils import B2N, CRB6sx, CA3sx, crossFlowDrag3
+from casadi_control.lib.usv_params import usv_params_6dof
 
-'''
+''' 
 Otter USV 3-DOF CasADi model
 '''
 
-# Dict of required constant parameters from simulator object
-def param_from_sim(sim):
-
-    params = {
-        'MRB6': ca.DM(sim.MRB),
-        'MA6' : ca.DM(sim.MA),
-        'D6'  : ca.DM(sim.D),
-        'Ig'  : ca.DM(sim.Ig[:3,:3]),
-        'H_rg': ca.DM(sim.H_rg),
-        'm_total': float(sim.m_total),
-        'L': float(sim.L), 'B': float(sim.B), 'T': float(sim.T)
-    }
-    return params
+params = usv_params_6dof()
 
 class Otter3DOF:
     def __init__(self, params, step):
@@ -32,7 +23,7 @@ class Otter3DOF:
 
 
         # 6DOF mass & damping to 3DOF
-        self.M3 = self.reduced @ (params['MRB6'] + params['MA6']) @ self.reduced.T 
+        self.M3 = self.reduced @ (params['MRB6'] + params['MA6']) @ self.reduced.T ### Change matrix operations to ca.mtimes(m1, m2, m3) if i mix dm/sx etc.
         self.D3 = self.reduced @ params['D6'] @ self.reduced.T
 
 
@@ -63,7 +54,7 @@ class Otter3DOF:
         CA3 = CA3sx(self.MA3, nu_r)
         C3 = CRB3 + CA3
 
-        # Hydrodynamic linear damping + nonlinear yaw damping from vehicle sim
+        # Hydrodynamic linear damping + nonlinear yaw damping (from simulator)
         tau_d = self.D3 @ nu_r
         tau_d[2] += 10 * self.D3[2,2] * ca.fabs(nu_r[2]) * nu_r[2]
 
@@ -71,39 +62,51 @@ class Otter3DOF:
         tau_cfd = crossFlowDrag3(params['L'], params['B'], params['T'], nu_r) 
 
 
-
         # create state derivative for 3DOF model 
+
         '''
         x_dot = [eta_dot, nu_dot] 
         nu_dot using fossens equation:
         M*nu(dot)+C(nu)*nu+D(nu)nu+G(eta) -> ignoring bouyancy and solving for nu_dot
         nu_dot*M = (tau-C(nu)nu-tau_d(nu)-tau_cfd(nu)) using solver
-        
         '''
-        rhs = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq               
+
+        ode = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
                         ca.solve(self.M3,           
                         tau - C3 @ nu - tau_d - tau_cfd)  
                         ) 
         
-        self.f_ct = ca.Function('f_ct', [x, tau, p], [rhs]) # continous time function ([state vector, control input, nu_c], rhs_function)
-
-        #runge-kutta 4th order
+        # DAE
+        dae = {
+        'x': x,                         # states (eta, nu)
+        'p': ca.vertcat(tau, p),        # parameters (inputs + currents) CHANGE TO ONLY CONTROLS OR ADD FILTER/ESTIMATION
+        'ode': ode                      # dynamics (x, u, p)
+        }    
+        
+        # Integrator
+        integrator = ca.integrator(
+        'integrator', 'rk', dae,
+        {'tf': self.dt, 'simplify': True, 'number_of_finite_elements': 4}
+        )
+     
+        # Function F(xk,uk,pk)->F(k+1)
+        self.F = ca.Function(
+        'F',
+        [x, tau, p],
+        [integrator(x0=x, p=ca.vertcat(tau, p))['xf']]
+        ) # continous time function ([state vector, control input, nu_c], rhs_function)
 
         
-        xk = ca.SX.sym('xk', 6)
-        uk = ca.SX.sym('uk', 3)
-        pk = ca.SX.sym('pk', 3)
-        
 
-        def rk4_step(x0, u0, p0):
-            dt = self.dt
-            k1 = self.f_ct(x0,          u0, p0)
-            k2 = self.f_ct(x0 + dt/2*k1, u0, p0)
-            k3 = self.f_ct(x0 + dt/2*k2, u0, p0)
-            k4 = self.f_ct(x0 + dt   *k3, u0, p0)
-            return x0 + dt*(k1 + 2*k2 + 2*k3 + k4)/6
-        
-        self.F = ca.Function('F', [xk, uk, pk], [rk4_step(xk, uk, pk)])
 
-sim = otter_simulator()
-params = param_from_sim(sim)    
+test = Otter3DOF(params, 1)
+
+# Testing, x = [eta,nu] = [position, velocities]
+x0   = ca.DM.zeros(6, 1)      # [x, y, psi, u, v, r]
+
+tau  = ca.DM([100, 0, 50])    # [X, Y, N]
+nu_c = ca.DM.zeros(3, 1)      # currents in body frame
+
+x1 = test.F(x0, tau, nu_c)    # one integration step
+x2 = x1 + test.F(x0, tau, nu_c)
+x3 = x2 + test.F(x0, tau, nu_c)

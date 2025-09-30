@@ -11,7 +11,6 @@ from lib.gnc import Hoerner
 Utils from otter_simulator and GNC for use with CasADi:
 '''
 
-
 def Smtrx(a):
     #S = Smtrx(a) computes the 3x3 vector skew-symmetric matrix S(a) = -S(a)'. (Fossen)
     return ca.vertcat(

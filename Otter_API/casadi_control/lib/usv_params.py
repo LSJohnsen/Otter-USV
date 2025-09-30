@@ -5,7 +5,7 @@ import numpy as np
 import casadi as ca
 
 '''
-From Otter_simulator: returns dictionary of parameters with casadi conversion 
+Based on Otter_simulator: returns dictionary of parameters for casadi
 '''
 
 def _Smtrx(a):
@@ -154,10 +154,10 @@ def usv_params_6dof(starting_yaw_angle: float = 0.0) -> dict:
         "l1": l1, "l2": l2, "k_pos": k_pos, "k_neg": k_neg, "n_max": n_max, "n_min": n_min,
         "Umax": Umax, "T_yaw": T_yaw,
 
-        # vectors (NumPy)
+        # vectors (numpy)
         "nu0": nu, "u_actual0": u_actual, "rp": rp, "rg": rg,
 
-        # matrices (CasADi DM)
+        # matrices (casadi)
         "H_rg":  ca.DM(H_rg),
         "Ig":    ca.DM(Ig),
         "MRB6":  ca.DM(MRB),

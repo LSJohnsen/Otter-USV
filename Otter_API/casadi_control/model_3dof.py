@@ -32,9 +32,9 @@ def Otter3DOF(params):
         MA3 = reduced @ params['MA6'] @ reduced.T # 
 
         # ---
-        eta = ca.SX.sym('eta', 3) # [x, y, psi]
+        eta = ca.SX.sym('eta', 3) # [x,y,psi]
         nu =  ca.SX.sym('nu', 3) # [u,v,r]
-        u =  ca.SX.sym('u', 3) # [u1, u2] 
+        tau =  ca.SX.sym('u', 3) # [X,0,N] 
         nu_c = ca.SX.sym('nu_c', 3) # Currents in body
         x = ca.vertcat(eta, nu) # [x,y,psi,u,v,r]
         p = nu_c
@@ -70,23 +70,11 @@ def Otter3DOF(params):
 
         ode = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
                         ca.solve(M3,           
-                        u - C3 @ nu - tau_d - tau_cfd)  
+                        tau - C3 @ nu - tau_d - tau_cfd)  
                         ) 
      
 
         # continous time function ([state vector, control input, nu_c], rhs_function)
-        f = ca.Function('f_ct', [x, u, p], [ode])
+        f = ca.Function('f_ct', [x, tau, p], [ode])
         return f
         
-
-test = Otter3DOF(params, 1)
-
-# Testing, x = [eta,nu] = [position, velocities]
-x0   = ca.DM.zeros(6, 1)      # [x, y, psi, u, v, r]
-
-u  = ca.DM([100, 0, 50])    # [X, Y, N]
-nu_c = ca.DM.zeros(3, 1)      # currents in body frame
-
-x1 = test.F(x0, u, nu_c)    # one integration step
-x2 = x1 + test.F(x0, u, nu_c)
-x3 = x2 + test.F(x0, u, nu_c)

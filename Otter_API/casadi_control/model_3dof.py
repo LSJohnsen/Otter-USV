@@ -34,10 +34,9 @@ def Otter3DOF(params):
         # ---
         eta = ca.SX.sym('eta', 3) # [x,y,psi]
         nu =  ca.SX.sym('nu', 3) # [u,v,r]
-        tau =  ca.SX.sym('u', 3) # [X,0,N] 
+        tau_u =  ca.SX.sym('u', 3) # [X,0,N] 
         nu_c = ca.SX.sym('nu_c', 3) # Currents in body
         x = ca.vertcat(eta, nu) # [x,y,psi,u,v,r]
-        p = nu_c
 
         J = B2N(eta[2]) #Body to NED transfrom 
 
@@ -70,11 +69,12 @@ def Otter3DOF(params):
 
         ode = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
                         ca.solve(M3,           
-                        tau - C3 @ nu - tau_d - tau_cfd)  
+                        tau_u - C3 @ nu - tau_d - tau_cfd)  
                         ) 
      
 
         # continous time function ([state vector, control input, nu_c], rhs_function)
-        f = ca.Function('f_ct', [x, tau, p], [ode])
+        f = ca.Function('f_ct', [x, tau_u], [ode])
+        #f = ca.Function('f_ct', [x, tau, p], [ode])
         return f
         

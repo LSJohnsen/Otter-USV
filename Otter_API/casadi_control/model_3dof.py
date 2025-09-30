@@ -74,7 +74,7 @@ def Otter3DOF(params):
      
 
         # continous time function ([state vector, control input, nu_c], rhs_function)
-        f = ca.Function('f_ct', [x, tau_u], [ode])
+        f = ca.Function('f_ct', [x, tau_u], [ode]) # returns x_dot 
         #f = ca.Function('f_ct', [x, tau, p], [ode])
         return f
         

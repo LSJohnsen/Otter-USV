@@ -9,7 +9,7 @@ from casadi_control.lib.usv_params import usv_params_6dof
 
 ''' 
 Otter USV 3-DOF CasADi model
-    Constants and functions are taken from the sim to convert to casadi build rather instead of numpy
+    Constants and functions are taken from the sim to convert to casadi build instead of numpy
     see: Otter_simulator, casadi_control/lib/casadi_utils, ../../usv_params
 '''
 
@@ -32,11 +32,12 @@ def Otter3DOF(params):
         m_total = params['m_total'] # mass
         MA3 = reduced @ params['MA6'] @ reduced.T # 
 
-        # ---
+        # USV states
         eta = ca.SX.sym('eta', 3)   # [x,y,psi]
         nu =  ca.SX.sym('nu', 3)    # [u,v,r]
         tau_u =  ca.SX.sym('u', 3)  # [X,0,N] 
         nu_c = ca.SX.sym('nu_c', 3) # Currents in body
+        nu_c = ca.DM.zeros(3,1)     #override as static if not estimating currents
         x = ca.vertcat(eta, nu)     # [x,y,psi,u,v,r]
 
         J = B2N(eta[2]) #Body to NED transfrom 
@@ -74,7 +75,7 @@ def Otter3DOF(params):
             
 
         # continous time function ([state vector, control input, nu_c], rhs_function)
-        f = ca.Function('f_ct', [x, tau_u], [ode]) # returns x_dot 
+        f = ca.Function('f', [x, tau_u], [ode]) # returns x_dot 
         #f = ca.Function('f_ct', [x, tau, p], [ode])
         return f
         

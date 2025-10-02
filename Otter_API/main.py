@@ -8,6 +8,7 @@ import threading
 import atexit
 import time
 
+import casadi_control.MPC_control as NMPC
 
 
 ##########################################################################################################################################################
@@ -98,12 +99,13 @@ yaw_ki = pdi["yaw_ki"]                                                          
 yaw_kd = pdi["yaw_kd"]                                                                                                  #
 
 
-
+# PID
 surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)                                  # Surge PID object
 yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
-
+# NMPC
+nmpc = NMPC()
 
 
 print("Welcome to the Otter controller simulator")                                                      #
@@ -136,26 +138,47 @@ def exit_handler():
 
 def main(option):
     if option == 1:
-        [simTime, simData, targetData] = simulator.simulate(N, sampleTime, otter, surge_PID, yaw_PID)   # This runs the whole simulation
+        sim_type = input("Enter 1 for PID control or 2 for NMPC control: ")
+        if sim_type == 1:
+            [simTime, simData, targetData] = simulator.simulate(N, sampleTime, otter, surge_PID, yaw_PID)   # This runs the whole simulation
 
-        plotVehicleStates(simTime, simData, 1)                                                          #
-        plotControls(simTime, simData, otter, 2)                                                        #
-                                                                                                        #
-        plotPosTar(simTime, simData, 4, targetData)                                                     # Plotting
-        plotSpeed(simTime, simData, 5)                                                                  #
-        if animate_path:
-            print("Checking data before animation...")
-            print("simData size:", len(simData))
-            print("targetData size:", len(targetData))
+            plotVehicleStates(simTime, simData, 1)                                                          #
+            plotControls(simTime, simData, otter, 2)                                                        #
+                                                                                                            #
+            plotPosTar(simTime, simData, 4, targetData)                                                     # Plotting
+            plotSpeed(simTime, simData, 5)                                                                  #
+            if animate_path:
+                print("Checking data before animation...")
+                print("simData size:", len(simData))
+                print("targetData size:", len(targetData))
 
-            plot3D(simData, numDataPoints, FPS, filename, 3)
-            plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
-        # Saves a GIF for 3d animation in the same folder as main
+                plot3D(simData, numDataPoints, FPS, filename, 3)
+                plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
+            # Saves a GIF for 3d animation in the same folder as main
+
+            plt.show()
+            plt.close()
 
 
+        elif sim_type == 2:
+            [simTime, simData, targetData] = simulator.simulate_NMPC(100, sampleTime, 3dof, nmpc, 0.1)
 
-        plt.show()
-        plt.close()
+            plotVehicleStates(simTime, simData, 1)                                                          #
+            plotControls(simTime, simData, otter, 2)                                                        #
+                                                                                                            #
+            plotPosTar(simTime, simData, 4, targetData)                                                     # Plotting
+            plotSpeed(simTime, simData, 5)                                                                  #
+            if animate_path:
+                print("Checking data before animation...")
+                print("simData size:", len(simData))
+                print("targetData size:", len(targetData))
+
+                plot3D(simData, numDataPoints, FPS, filename, 3)
+                plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
+            # Saves a GIF for 3d animation in the same folder as main
+
+            plt.show()
+            plt.close()
 
     elif option == 2:
 

@@ -5,7 +5,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # F
 
 import casadi as ca
 from model_3dof import Otter3DOF 
-from casadi_control.lib import MPC_config  
+from casadi_sim import otter_simulator
+from casadi_control.lib.usv_params import usv_params_6dof
 
 class NMPCControl:
     def __init__(self, f, N, sampleTime=0.02, solver=None):
@@ -22,7 +23,7 @@ class NMPCControl:
         self.F = self.function_integrator(self.f, self.sampleTime)
 
         # Weights - modify to tune controller 
-        self.Q_weight = ca.diag(ca.DM([0.05, 0.05]))   # state weights
+        self.Q_weight = ca.diag(ca.DM([0.05, 0.05]))        # state weights
         self.R_weight = ca.diag(ca.DM([1000, 1000]))        # Controller weight
         self.I_weight = ca.diag(1, 1, 1)                    # Rate of change weight (control input)
 
@@ -34,22 +35,20 @@ class NMPCControl:
         self.current_solver = None
         self.solver = solver
         self.control_specification()
-    
-
        
     def function_integrator(self, f, sampleTime):
 
         x = ca.SX.sym('x', 6)         # [eta,nu]
         tau_u = ca.SX.sym('tau', 3)   # [X,0,N]
-        #pc = ca.SX.sym('p', 3)       # currents (remove?)
+        #tau_c = ca.SX.sym('p', 3)       # currents (remove?)
 
         # Get 3DOF model from Otter3DOF func
         x_dot = f(x, tau_u) # gets ODE from 3dof model
-        #ode = f(x, u, pc) 
+        #ode = f(x, u, tau_c) 
         
         #xdot = ode (model rhs)
         dae = {'x': x, 'p': ca.vertcat(tau_u), 'ode': x_dot} #force as input and current (remove currnent?)
-        #dae = {'x': x, 'p': ca.vertcat(u, pc), 'ode': ode}
+        #dae = {'x': x, 'p': ca.vertcat(u, tau_c), 'ode': ode}
 
         # Integrator options with runge kutta 4 integrator
         integrator_options = ca.integrator('integrator',
@@ -68,7 +67,7 @@ class NMPCControl:
 
         # control variables
         x = opti.variable(6,N+1)        # States
-        tau_u = opti.variable(3,N)    # Controls (N+1)?
+        tau_u = opti.variable(3,N)      # Controls (N+1)?
 
         #parameters
         x0 = opti.parameter(6)          # initial state for every control step 
@@ -82,13 +81,9 @@ class NMPCControl:
         opti.set_value(Q, self.Q_weight)
         opti.set_value(R, self.R_weight)
         opti.set_value(I, self.I_weight)
-        
-        
-        # Cost function parameters - ENDRE 
-      
+           
 
         # Initial conditions & bounds
-
         # Initial state
         opti.subject_to(x[:,0] == x0)  
 
@@ -98,7 +93,6 @@ class NMPCControl:
         opti.subject_to(opti.bounded(u_min_H, tau_u, u_max_H))
 
         # objective cost over horizon N
-        #  
         objective_cost = 0
         for k in range(N):
 
@@ -115,7 +109,7 @@ class NMPCControl:
 
         # control rate objective cost between each step 
         control_rate = tau_u[:,1:] - tau_u[:,:-1]                   # difference between current and previous tau
-        control_rate_cost = ca.sumsqr(I @ control_rate)            # sum of squares for every row from current steo
+        control_rate_cost = ca.sumsqr(I @ control_rate)             # sum of squares for every row from current step
         objective_cost += control_rate_cost
         
 
@@ -170,9 +164,10 @@ class NMPCControl:
 
         return solve_control.value(self.tau_u)[:,0]
     
-        
 
+params = usv_params_6dof()
+otter_function = Otter3DOF(params)
+simulator = otter_simulator()
 
-func = Otter3DOF()
-NMPC = NMPCControl(func, 100, )
+NMPC = NMPCControl(otter_function, 100, 0.02)
 

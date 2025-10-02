@@ -10,26 +10,32 @@ from casadi_control.lib import MPC_config
 class NMPCControl:
     def __init__(self, f, N, sampleTime=0.02, solver=None):
 
-        # Target states
-        self.current_target = None
-        self.previous_target = None
-        self.target = None
-
-        # MPC options
+        # Target and initial states
+        #self.current_target = None
+        #self.previous_target = None
+        #self.target = None
+        #self.initial_state = None
+        #self.current_solver = None
         self.N = N
-        self.function = self.function_integrator(f, sampleTime)     # init integrator function 
+        self.sampleTime = sampleTime
+        self.f = f
+        self.F = self.function_integrator(self.f, self.sampleTime)
 
         # Weights - modify to tune controller 
-        self.Q_weight = ca.diag(0.05, 0, 0.05)  # state weights
-        self.R_weight = ca.diag(1000, 000)      # Controller weight
-        self.I_weight = ca.diag(1, 1, 1)        # Rate of change weight (control input)
+        self.Q_weight = ca.diag(ca.DM([0.05, 0.05]))   # state weights
+        self.R_weight = ca.diag(ca.DM([1000, 1000]))        # Controller weight
+        self.I_weight = ca.diag(1, 1, 1)                    # Rate of change weight (control input)
 
-        # Controls (NM forces in surge, sway, yaw)
+        # Control bounds (NM forces in surge, sway, yaw)
         self.u_min = ca.DM([-116,   0, -73])                   
         self.u_max = ca.DM([ 150,   0,  73]) 
 
         # Solver
+        self.current_solver = None
         self.solver = solver
+        self.control_specification()
+    
+
        
     def function_integrator(self, f, sampleTime):
 
@@ -38,11 +44,11 @@ class NMPCControl:
         #pc = ca.SX.sym('p', 3)       # currents (remove?)
 
         # Get 3DOF model from Otter3DOF func
-        ode = f(x, tau_u) 
+        x_dot = f(x, tau_u) # gets ODE from 3dof model
         #ode = f(x, u, pc) 
         
         #xdot = ode (model rhs)
-        dae = {'x': x, 'p': ca.vertcat(tau_u), 'ode': ode} #force as input and current (remove currnent?)
+        dae = {'x': x, 'p': ca.vertcat(tau_u), 'ode': x_dot} #force as input and current (remove currnent?)
         #dae = {'x': x, 'p': ca.vertcat(u, pc), 'ode': ode}
 
         # Integrator options with runge kutta 4 integrator
@@ -62,39 +68,45 @@ class NMPCControl:
 
         # control variables
         x = opti.variable(6,N+1)        # States
-        tau_u = opti.variable(3,N+1)    # Controls
+        tau_u = opti.variable(3,N)    # Controls (N+1)?
 
         #parameters
         x0 = opti.parameter(6)          # initial state for every control step 
-        t_ref = opti.parameter(2)       # target reference 
+        t_ref = opti.parameter(2)       # target reference (x,y)
 
         #Weights
         Q = opti.parameter(2, 2)        # tracking error weights
         R = opti.parameter(3, 3)        # MV weights, control change magnitude penalty
         I = opti.parameter(3, 3)        # rate of change penalty 
+
+        opti.set_value(Q, self.Q_weight)
+        opti.set_value(R, self.R_weight)
+        opti.set_value(I, self.I_weight)
         
         
-        opti.minimize(cost(x,u,target,R,Q))
         # Cost function parameters - ENDRE 
       
 
         # Initial conditions & bounds
+
         # Initial state
         opti.subject_to(x[:,0] == x0)  
 
-        # controls
+        # control bounds
         u_min_H = ca.repmat(self.u_min, 1, N)
         u_max_H = ca.repmat(self.u_max, 1, N)
         opti.subject_to(opti.bounded(u_min_H, tau_u, u_max_H))
 
-        # objective cost over horizon N 
-        ojective_cost = 0
+        # objective cost over horizon N
+        #  
+        objective_cost = 0
         for k in range(N):
+
             next_x = self.F(x[:,k], tau_u[:,k])
             opti.subject_to(x[:,k+1] == next_x)
         
             tracking_error = x[0:2,k] - t_ref                           # x,y - target reference error at step k
-            tracking_cost = tracking_error.T @ Q @ tracking_error      # transpose works without editor color?
+            tracking_cost = tracking_error.T @ Q @ tracking_error       # transpose works without editor color?
 
             control_step = tau_u[:,k]                                   # tau_u at step k
             control_cost = control_step.T @ R @ control_step 
@@ -107,32 +119,58 @@ class NMPCControl:
         objective_cost += control_rate_cost
         
 
-        # opti.minimize(objective_cost) 
-        cost_func = ca.Function('objective_cost',
-                        [x, tau_u, t_ref, R, Q],
-                        [objective_cost])  
+        #minimize objective cost
+        opti.minimize(objective_cost)
 
-        opti.minimize(cost_func(x, tau_u, t_ref, R, Q))
+        #cost_func = ca.Function('objective_cost',
+        #                [x, tau_u, t_ref, R, Q],
+        #                [objective_cost])  
+
+        #opti.minimize(cost_func(x, tau_u, t_ref, R, Q))
+
+        #Solver
+        opti.solver('ipopt', self.solver_options())
+
+        self.opti = opti
+        self.x, self.tau_u  = x, tau_u
+        self.x0, self.t_ref = x0, t_ref
+        self.Q, self.R, self.I = Q, R, I
+
+    def solver_options(self):
+        return {"ipopt": {                      #Ipopt optimization
+            "print_level": 2,                           #Verbose
+            "max_iter": 20000,                          #iteration cap? 
+            "tol": 1e-6,                                #stopping tolerance
+            "acceptable_tol": 1e-4,                     #early stop if adequate
+            "linear_solver": "mumps",                   #linear solver?
+            "warm_start_init_point": "yes",             #Warm start -> use previous memory
+            "hessian_approximation": "limited-memory",  #limited memory LBFGS
+            "print_timing_statistics": "no"              
+        },
+        "print_time": "False",
+        "expand": "True"}
+    
+    def solve_control(self, init_state, target_reference):
 
 
+        self.opti.set_value(self.x0, init_state)            # x0 .- USV initial state
+        self.opti.set_value(self.t_ref, target_reference)   # t_ref - target reference point
+
+
+        if self.current_solver is not None:
+            self.opti.set_initial(self.x, self.current_solver.value(self.x))
+            self.opti.set_initial(self.tau_u, self.current_solver.value(self.tau_u))
+
+        else:
+            self.opti.set_initial(self.x, 0)
+            self.opti.set_initial(self.tau_u, 0)
+
+        solve_control = self.opti.solve()
+        self.current_solver = solve_control  
+
+        return solve_control.value(self.tau_u)[:,0]
+    
         
-    def solver(self):
-        options = {
-                    "ipopt": {
-                        "print_level": 2,
-                        "max_iter": 500,
-                        "tol": 1e-6,
-                        "acceptable_tol": 1e-4,
-                        "linear_solver": "mumps",
-                        "warm_start_init_point": "yes"
-                    },
-                    "print_time": False,
-                    "expand": True
-                }
-        opti.solver("ipopt", options)
-
-
-
 
 
 func = Otter3DOF()

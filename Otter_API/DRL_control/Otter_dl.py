@@ -346,7 +346,6 @@ class OtterEnv(gym.Env):
         pass
 
 
-
 def make_env():
     def _init():
         otter = Otter_api.otter()

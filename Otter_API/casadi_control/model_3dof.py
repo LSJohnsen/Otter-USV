@@ -6,9 +6,10 @@ import casadi as ca
 from casadi_control.lib.casadi_utils import B2N, CRB6sx, CA3sx, crossFlowDrag3
 from casadi_control.lib.usv_params import usv_params_6dof
 
+
 ''' 
 Otter USV 3-DOF CasADi model
-    Constants and functions are taken from the simulator to convert to casadi build rather instead of numpy
+    Constants and functions are taken from the sim to convert to casadi build rather instead of numpy
     see: Otter_simulator, casadi_control/lib/casadi_utils, ../../usv_params
 '''
 
@@ -26,17 +27,17 @@ def Otter3DOF(params):
 
 
         # Constants from sim
-        Ig = params['Ig'] # inertia around CG
-        H_rg = params['H_rg'] # CG to CO transfrom 
+        Ig = params['Ig']           # inertia around CG
+        H_rg = params['H_rg']       # CG to CO transfrom 
         m_total = params['m_total'] # mass
         MA3 = reduced @ params['MA6'] @ reduced.T # 
 
         # ---
-        eta = ca.SX.sym('eta', 3) # [x,y,psi]
-        nu =  ca.SX.sym('nu', 3) # [u,v,r]
-        tau_u =  ca.SX.sym('u', 3) # [X,0,N] 
+        eta = ca.SX.sym('eta', 3)   # [x,y,psi]
+        nu =  ca.SX.sym('nu', 3)    # [u,v,r]
+        tau_u =  ca.SX.sym('u', 3)  # [X,0,N] 
         nu_c = ca.SX.sym('nu_c', 3) # Currents in body
-        x = ca.vertcat(eta, nu) # [x,y,psi,u,v,r]
+        x = ca.vertcat(eta, nu)     # [x,y,psi,u,v,r]
 
         J = B2N(eta[2]) #Body to NED transfrom 
 
@@ -57,7 +58,6 @@ def Otter3DOF(params):
         # cross-flow drag 
         tau_cfd = crossFlowDrag3(params['L'], params['B'], params['T'], nu_r) 
 
-
         # create state derivative for 3DOF model 
 
         '''
@@ -71,7 +71,7 @@ def Otter3DOF(params):
                         ca.solve(M3,           
                         tau_u - C3 @ nu - tau_d - tau_cfd)  
                         ) 
-     
+            
 
         # continous time function ([state vector, control input, nu_c], rhs_function)
         f = ca.Function('f_ct', [x, tau_u], [ode]) # returns x_dot 

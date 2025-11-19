@@ -1,3 +1,4 @@
+
 import Otter_api
 import lib.PID_Controller_test_v2 as PID_Controller_test_v2
 import Otter_simulator
@@ -8,7 +9,9 @@ import threading
 import atexit
 import time
 
-import casadi_control.MPC_control as NMPC
+from casadi_control.MPC_control import NMPCControl
+from casadi_control.lib.usv_params import usv_params_6dof
+from casadi_control.model_3dof import Otter3DOF
 
 
 ##########################################################################################################################################################
@@ -27,8 +30,12 @@ moving_target_increase = [-1.5, 0.0]                                            
 target_radius = 1                                                                                       # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
-circular_target = False                                                                                 # Make the moving target a circle in the simulation
+circular_target = True                                                                               # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
+
+# NMPC
+N_horizon   = 30                                                                                        # Prediction Horizon e.g. 30 steps
+control_dt  = 0.1                                                                                       # MPC update period (s)
 
 
 # When connecting to live otter and using target tracking or simulating circular target:
@@ -65,7 +72,18 @@ test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15
 
 
 otter = Otter_api.otter()                                                                                                                                                                                                          # Creates Otter object from the API
-simulator = Otter_simulator.otter_simulator(target_list, use_target_coordinates, target_radius, use_moving_target, moving_target_start, moving_target_increase, end_when_last_target_reached, verbose, store_force_file, circular_target)           # Creates Simulator object
+simulator = Otter_simulator.otter_simulator(target_list, 
+                                            use_target_coordinates, 
+                                            target_radius, 
+                                            use_moving_target, 
+                                            moving_target_start, 
+                                            moving_target_increase, 
+                                            end_when_last_target_reached, 
+                                            verbose, 
+                                            store_force_file, 
+                                            circular_target)           # Creates Simulator object
+
+
 
 
 
@@ -104,9 +122,15 @@ surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)  
 yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
-# NMPC
-nmpc = NMPC()
 
+#initialize params for nmpc
+otter_6dof_params = usv_params_6dof()
+otter_3dof = Otter3DOF(otter_6dof_params)
+nmpc = NMPCControl(
+    f=otter_3dof,     
+    N=N_horizon,
+    sampleTime=control_dt,
+)
 
 print("Welcome to the Otter controller simulator")                                                      #
 print("(1): Simulate Otter")                                                                            # Main introduction part
@@ -117,7 +141,7 @@ try:
     pass
 except:
     print("You entered an invalid option so a simulation will be run!")
-    option = 1
+    option = 1 
 
 
 def _target_tracking():
@@ -138,9 +162,13 @@ def exit_handler():
 
 def main(option):
     if option == 1:
-        sim_type = input("Enter 1 for PID control or 2 for NMPC control: ")
+        sim_type = int(input("Enter 1 for PID control or 2 for NMPC control: "))
         if sim_type == 1:
-            [simTime, simData, targetData] = simulator.simulate(N, sampleTime, otter, surge_PID, yaw_PID)   # This runs the whole simulation
+            [simTime, simData, targetData] = simulator.simulate(N, 
+                                                                sampleTime, 
+                                                                otter, 
+                                                                surge_PID, 
+                                                                yaw_PID)   # This runs the whole simulation
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
@@ -161,7 +189,12 @@ def main(option):
 
 
         elif sim_type == 2:
-            [simTime, simData, targetData] = simulator.simulate_NMPC(100, sampleTime, 3dof, nmpc, 0.1)
+            [simTime, simData, targetData] = simulator.simulate_NMPC(
+                                                        N=N,
+                                                        sampleTime=sampleTime,
+                                                        otter=otter,
+                                                        nmpc=nmpc,
+                                                        control_dt=control_dt)
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
@@ -227,8 +260,6 @@ def main(option):
                 atexit.register(exit_handler)
         else:
             print("Error")
-
-
 
 
 if __name__ == "__main__":

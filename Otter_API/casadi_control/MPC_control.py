@@ -22,12 +22,12 @@ class NMPCControl:
         self.f = f
         self.F = self.function_integrator(self.f, self.sampleTime)
 
-        # Weights - modify to tune controller 
-        self.Q_weight = ca.diag(ca.DM([0.05, 0.05]))        # state weights
-        self.R_weight = ca.diag(ca.DM([1000, 1000]))        # Controller weight
-        self.I_weight = ca.diag(1, 1, 1)                    # Rate of change weight (control input)
+        # controller weights
+        self.Q_weight = ca.diag(ca.DM([100.0, 100.0]))       # state weights
+        self.R_weight = 0.1 * ca.DM.eye(3)                 # Controller weight
+        self.I_weight = ca.diag(ca.DM([0.05, 0.05, 0.2]))    # Rate of change weight (control input)
 
-        # Control bounds (NM forces in surge, sway, yaw)
+        # Control bounds (NM forces in surge, sway, yaw), parsed to throttle map in sim
         self.u_min = ca.DM([-116,   0, -73])                   
         self.u_max = ca.DM([ 150,   0,  73]) 
 
@@ -54,7 +54,7 @@ class NMPCControl:
         integrator_options = ca.integrator('integrator',
                                     'rk',
                                     dae,
-                                    {'tf': sampleTime, 'simplify': True, 'number_finite_elements': 4})
+                                    {'tf': sampleTime, 'simplify': True, 'number_of_finite_elements': 4})
 
         #Function takes variables [x, tau_u)], and creates function for next integration step 
         F = ca.Function('F', [x, tau_u], [integrator_options(x0=x, p=ca.vertcat(tau_u))['xf']]) 
@@ -66,7 +66,7 @@ class NMPCControl:
         opti = ca.Opti()
 
         # control variables
-        x = opti.variable(6,N+1)        # States
+        x = opti.variable(6,N+1)            # States
         tau_u = opti.variable(3,N)      # Controls (N+1)?
 
         #parameters
@@ -98,14 +98,25 @@ class NMPCControl:
 
             next_x = self.F(x[:,k], tau_u[:,k])
             opti.subject_to(x[:,k+1] == next_x)
-        
+
+            # tracking cost
             tracking_error = x[0:2,k] - t_ref                           # x,y - target reference error at step k
             tracking_cost = tracking_error.T @ Q @ tracking_error       # transpose works without editor color?
 
-            control_step = tau_u[:,k]                                   # tau_u at step k
-            control_cost = control_step.T @ R @ control_step 
 
-            objective_cost += (tracking_cost + control_cost)
+            psi = x[2, k]       # yaw
+            psi_ref = ca.atan2(t_ref[1] - x[1, k],
+                            t_ref[0] - x[0, k]) 
+            
+            heading_error = ca.atan2(ca.sin(psi - psi_ref), ca.cos(psi - psi_ref))
+            heading_cost = 0.01*(1.0 * heading_error**2)   
+
+            
+            # control cost
+            control_step = tau_u[:,k]                                   # tau_u at step k
+            control_cost = 0.1*(control_step.T @ R @ control_step) 
+
+            objective_cost += tracking_cost + control_cost + heading_cost
 
         # control rate objective cost between each step 
         control_rate = tau_u[:,1:] - tau_u[:,:-1]                   # difference between current and previous tau
@@ -131,7 +142,7 @@ class NMPCControl:
         self.Q, self.R, self.I = Q, R, I
 
     def solver_options(self):
-        return {"ipopt": {                      #Ipopt optimization
+        return {"ipopt": {                              #Ipopt optimization
             "print_level": 2,                           #Verbose
             "max_iter": 20000,                          #iteration cap? 
             "tol": 1e-6,                                #stopping tolerance
@@ -141,11 +152,14 @@ class NMPCControl:
             "hessian_approximation": "limited-memory",  #limited memory LBFGS
             "print_timing_statistics": "no"              
         },
-        "print_time": "False",
-        "expand": "True"}
+        "print_time": False,
+        "expand": True}
     
     def solve_control(self, init_state, target_reference):
-
+        """
+        init_state: np.array shape (6,)  -> [x, y, psi, u, v, r]
+        target_reference: np.array shape (2,) -> [x_ref, y_ref]
+        """
 
         self.opti.set_value(self.x0, init_state)            # x0 .- USV initial state
         self.opti.set_value(self.t_ref, target_reference)   # t_ref - target reference point
@@ -162,12 +176,9 @@ class NMPCControl:
         solve_control = self.opti.solve()
         self.current_solver = solve_control  
 
-        return solve_control.value(self.tau_u)[:,0]
+        return solve_control.value(self.tau_u)[:,0].flatten()
     
 
-params = usv_params_6dof()
-otter_function = Otter3DOF(params)
-simulator = otter_simulator()
 
-NMPC = NMPCControl(otter_function, 100, 0.02)
+
 

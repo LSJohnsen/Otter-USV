@@ -58,7 +58,7 @@ def Otter3DOF(params):
 
         # cross-flow drag 
         tau_cfd = crossFlowDrag3(params['L'], params['B'], params['T'], nu_r) 
-
+        
         # create state derivative for 3DOF model 
 
         '''
@@ -68,7 +68,7 @@ def Otter3DOF(params):
         nu_dot*M = (tau-C(nu)nu-tau_d(nu)-tau_cfd(nu)) using solver
         '''
 
-        ode = ca.vertcat(J @ nu,                    # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
+        ode = ca.vertcat(J @ nu,                                # compute the RHS forces from fossens eq (ODE for 3DOF USV)              
                         ca.solve(M3,           
                         tau_u - C3 @ nu - tau_d - tau_cfd)  
                         ) 

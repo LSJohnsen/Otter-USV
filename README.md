@@ -1,6 +1,6 @@
 # Otter USV – API, Control Methods, and Simulator Extensions
 
-This repository combines work from several courses and a bachelor thesis, all centered around the Otter Unmanned Surface Vehicle (USV). It provides an Application Programming Interface (API), multiple control approaches, and modified simulation environments. The project is built on top of the Python Vehicle Simulator developed by Thor I. Fossen (Autumn 2023), and it expands that framework for academic experimentation, controller development, and reinforcement learning research.
+This repository combines work from several courses and a bachelor thesis, all centered around the Otter Unmanned Surface Vehicle (USV). It provides an Application Programming Interface (API), multiple control approaches, and modified simulation environments. The project is built on top of the Python Vehicle Simulator developed by [Thor I. Fossen (Autumn 2023)](https://github.com/cybergalactic/PythonVehicleSimulator), and it expands that framework for academic experimentation, controller development, and reinforcement learning research.
 
 ---
 

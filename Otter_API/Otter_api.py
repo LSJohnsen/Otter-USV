@@ -109,10 +109,13 @@ class otter():
         diff_n = cur_pos_ned[0] - prev_pos_ned[0]
         diff_e = cur_pos_ned[1] - prev_pos_ned[1]
 
-
-
-        self.sorted_values["speed_n"] = diff_n / self.sorted_values["cycle_time"]
-        self.sorted_values["speed_e"] = diff_e / self.sorted_values["cycle_time"]
+        
+        if self.sorted_values["cycle_time"] and self.sorted_values["cycle_time"] > 0:
+            self.sorted_values["speed_n"] = diff_n / self.sorted_values["cycle_time"]
+            self.sorted_values["speed_e"] = diff_e / self.sorted_values["cycle_time"]
+        else:
+            self.sorted_values["speed_n"] = 0.0
+            self.sorted_values["speed_e"] = 0.0
 
         self.sorted_values["speed_surge"] = self.sorted_values["speed_n"] * math.cos(self.sorted_values["current_course_over_ground"] * (math.pi/180))
         self.sorted_values["speed_sway"] = self.sorted_values["speed_n"] * -math.sin(self.sorted_values["current_course_over_ground"] * (math.pi/180))

@@ -198,6 +198,9 @@ class otter_connector():
         n, e, d = pm.geodetic2ned(self.current_position[0], self.current_position[1], 0, \
         self.previous_position[0], self.previous_position[1], 0)
         s = np.hypot(n, e)
+        dt = time.time() - self.last_speed_update 
+        if dt <= 0:
+            return
         v = s / (time.time() - self.last_speed_update)
         #self.current_speed = float(gps_message[7])
         self.current_speed = v

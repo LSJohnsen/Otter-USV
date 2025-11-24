@@ -9,6 +9,10 @@ import pandas as pd
 from numba import jit, cuda
 from pathlib import Path
 
+'''
+testing purposes. ues updated otter_simulator.py
+'''
+
 class otter_simulator():
 
     def __init__(self, 

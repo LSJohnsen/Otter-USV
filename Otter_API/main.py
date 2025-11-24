@@ -30,17 +30,17 @@ moving_target_increase = [-1.5, 0.0]                                            
 target_radius = 1                                                                                       # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
-circular_target = True                                                                               # Make the moving target a circle in the simulation
+circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
-N_horizon   = 30                                                                                        # Prediction Horizon e.g. 30 steps
+N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally)
 control_dt  = 0.1                                                                                       # MPC update period (s)
 
 
 # When connecting to live otter and using target tracking or simulating circular target:
 ip = "10.0.5.1"
-port = 20091
+port = 2009
 start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
@@ -49,7 +49,7 @@ radius = 40                                                                     
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
-enable_live_plot = True                                                                                # Enables live plotting
+enable_live_plot = True                                                                                  # Enables live plotting
 
 
 parameter_list = 3                                    # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4
@@ -88,7 +88,12 @@ simulator = Otter_simulator.otter_simulator(target_list,
 
 
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]          # Some values needed for the plotting
-otter.dimU = len(otter.controls)                                                                        #
+otter.dimU = len(otter.controls)        
+
+otter.sorted_values.setdefault("target_north_from_observer", start_north)                               # Some initial values to avoid nmpc crash
+otter.sorted_values.setdefault("target_east_from_observer",  start_east)
+otter.sorted_values.setdefault("tau_X", 0.0)
+otter.sorted_values.setdefault("tau_N", 0.0)                                                                #
 
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
@@ -132,16 +137,28 @@ nmpc = NMPCControl(
     sampleTime=control_dt,
 )
 
-print("Welcome to the Otter controller simulator")                                                      #
-print("(1): Simulate Otter")                                                                            # Main introduction part
-print("(2): Connect and use live Otter")                                                                #
+print("Welcome to the Otter controller simulator and socket")                                                      
+try:
+    option = int(input("Enter option to simulate (1), or connect to the Otter USV (2): "))
+except ValueError:
+    print("You entered an invalid option, running simulation (1).")
+    option = 1
 
 try:
-    option = float(input("Enter option: "))
-    pass
-except:
-    print("You entered an invalid option so a simulation will be run!")
-    option = 1 
+    ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
+except ValueError:
+    print("Invalid control option, applying PID.")
+    ctrl_option = 2
+
+#apply NMPC if true
+use_nmpc = (ctrl_option == 1)
+live_guidance = Live_guidance.live_guidance(ip=ip, port=port, surge_PID=surge_PID, yaw_PID=yaw_PID, surge_setpoint=target_radius, otter=otter, 
+    nmpc=nmpc,                 # NMPC object (can be used or ignored internally)
+    use_nmpc=use_nmpc,         # True for NMPC, False for PID
+    control_dt=control_dt
+)
+
+
 
 
 def _target_tracking():
@@ -162,8 +179,8 @@ def exit_handler():
 
 def main(option):
     if option == 1:
-        sim_type = int(input("Enter 1 for PID control or 2 for NMPC control: "))
-        if sim_type == 1:
+        #sim_type = int(input("Enter 1 for PID control or 2 for NMPC control: "))
+        if ctrl_option == 2:
             [simTime, simData, targetData] = simulator.simulate(N, 
                                                                 sampleTime, 
                                                                 otter, 
@@ -188,7 +205,7 @@ def main(option):
             plt.close()
 
 
-        elif sim_type == 2:
+        elif ctrl_option == 1:
             [simTime, simData, targetData] = simulator.simulate_NMPC(
                                                         N=N,
                                                         sampleTime=sampleTime,
@@ -225,10 +242,8 @@ def main(option):
 
         option = float(input("Enter 1 for target tracking with moving target, 2 for circular motion or 3 for square tracking: "))
 
-
         if option == 1:
-
-            if enable_live_plot:
+            if enable_live_plot:    
                 _target_thread.start()
                 print(" Waiting for data")
                 time.sleep(6)
@@ -237,6 +252,7 @@ def main(option):
             else:
                 live_guidance.target_tracking(start_north, start_east, v_north, v_east)
                 atexit.register(exit_handler)
+
         elif option == 2:
             if enable_live_plot:
                 _circle_thread.start()

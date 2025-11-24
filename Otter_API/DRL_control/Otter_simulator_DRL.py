@@ -7,7 +7,6 @@ from numba import jit, cuda
 from pathlib import Path
 
 
-
 class OtterSimDRL():
     def __init__(self, 
                  target_list, 

@@ -2,6 +2,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Find alternative method
 
+'''
+remember to move tuning params to main
+'''
+
 
 import casadi as ca
 from model_3dof import Otter3DOF 
@@ -23,9 +27,9 @@ class NMPCControl:
         self.F = self.function_integrator(self.f, self.sampleTime)
 
         # controller weights
-        self.Q_weight = ca.diag(ca.DM([100.0, 100.0]))       # state weights
-        self.R_weight = 0.1 * ca.DM.eye(3)                 # Controller weight
-        self.I_weight = ca.diag(ca.DM([0.05, 0.05, 0.2]))    # Rate of change weight (control input)
+        self.Q_weight = ca.diag(ca.DM([1.0, 1.0]))       # state weights
+        self.R_weight = 0.001*ca.DM.eye(3)                   # Controller weight
+        self.I_weight = 0.01*ca.diag(ca.DM([0.05, 0.05, 0.2]))    # Rate of change weight (control input)
 
         # Control bounds (NM forces in surge, sway, yaw), parsed to throttle map in sim
         self.u_min = ca.DM([-116,   0, -73])                   
@@ -77,6 +81,7 @@ class NMPCControl:
         Q = opti.parameter(2, 2)        # tracking error weights
         R = opti.parameter(3, 3)        # MV weights, control change magnitude penalty
         I = opti.parameter(3, 3)        # rate of change penalty 
+        self.w_psi = 1
 
         opti.set_value(Q, self.Q_weight)
         opti.set_value(R, self.R_weight)
@@ -106,10 +111,10 @@ class NMPCControl:
 
             psi = x[2, k]       # yaw
             psi_ref = ca.atan2(t_ref[1] - x[1, k],
-                            t_ref[0] - x[0, k]) 
-            
-            heading_error = ca.atan2(ca.sin(psi - psi_ref), ca.cos(psi - psi_ref))
-            heading_cost = 0.01*(1.0 * heading_error**2)   
+                            t_ref[0] - x[0, k])
+
+            dpsi = psi - psi_ref
+            heading_cost = self.w_psi * (1 - ca.cos(dpsi))  
 
             
             # control cost
@@ -144,12 +149,14 @@ class NMPCControl:
     def solver_options(self):
         return {"ipopt": {                              #Ipopt optimization
             "print_level": 2,                           #Verbose
-            "max_iter": 20000,                          #iteration cap? 
-            "tol": 1e-6,                                #stopping tolerance
-            "acceptable_tol": 1e-4,                     #early stop if adequate
+            "max_iter": 150,                          #iteration cap? 
+            "tol": 1e-4,                                #stopping tolerance prev 1e6
+            "acceptable_tol": 1e-3,                     #early stop if adequate prev 1e4
+            "acceptable_iter": 5,                       #terminate early if enough acceptable iterations
             "linear_solver": "mumps",                   #linear solver?
             "warm_start_init_point": "yes",             #Warm start -> use previous memory
-            "hessian_approximation": "limited-memory",  #limited memory LBFGS
+            "warm_start_bound_push": 1e-3,
+            "warm_start_mult_bound_push": 1e-3,         # "hessian_approximation": "limited-memory",  #limited memory LBFGS
             "print_timing_statistics": "no"              
         },
         "print_time": False,

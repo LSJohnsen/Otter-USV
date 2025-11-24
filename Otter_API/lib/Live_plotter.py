@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import time
 import math
 
@@ -89,14 +89,19 @@ class live_plotter():
 
 
         if self.x21 == "time" and self.x22 == "time":
-            self.xs21.append(float(time.time() - self.start_time))
+            t = float(time.time() - self.start_time)
+            self.xs21.append(t)
             self.xs22 = self.xs21
-
         else:
-            self.xs21.append(float(self.otter.sorted_values[self.x21]))
-            self.xs22.append(float(self.otter.sorted_values[self.x22]))
-        self.ys21.append(float(self.otter.sorted_values[self.y21]))
-        self.ys22.append(float(self.otter.sorted_values[self.y22]))
+            x21_val = float(self.otter.sorted_values.get(self.x21, 0.0))
+            x22_val = float(self.otter.sorted_values.get(self.x22, 0.0))
+            self.xs21.append(x21_val)
+            self.xs22.append(x22_val)
+
+        y21_val = float(self.otter.sorted_values.get(self.y21, 0.0))
+        y22_val = float(self.otter.sorted_values.get(self.y22, 0.0))
+        self.ys21.append(y21_val)
+        self.ys22.append(y22_val)
 
         self.ax2.clear()
         self.ax2.set_xlabel("East (m)")
@@ -111,10 +116,12 @@ class live_plotter():
             self.xs32 = self.xs31
 
         else:
-            self.xs31.append(float(self.otter.sorted_values[self.x31]))
-            self.xs32.append(float(self.otter.sorted_values[self.x32]))
-        self.ys31.append(float(self.otter.sorted_values[self.y31]))
-        self.ys32.append(float(self.otter.sorted_values[self.y32] * (180/math.pi)))
+            self.xs31.append(float(self.otter.sorted_values.get(self.x31, 0.0)))
+            self.xs32.append(float(self.otter.sorted_values.get(self.x32, 0.0)))
+            
+        self.ys31.append(float(self.otter.sorted_values.get(self.y31, 0.0)))
+        yaw_setpoint_rad = self.otter.sorted_values.get(self.y32, 0.0)
+        self.ys32.append(yaw_setpoint_rad * (180.0 / math.pi))
         self.ax3.clear()
         self.ax3.set_xlabel("Time (s)")
         self.ax3.set_ylabel("Angle (deg)")
@@ -124,14 +131,19 @@ class live_plotter():
 
 
         if self.x41 == "time" and self.x42 == "time":
-            self.xs41.append(float(time.time() - self.start_time))
+            t = float(time.time() - self.start_time)
+            self.xs41.append(t)
             self.xs42 = self.xs41
-
         else:
-            self.xs41.append(float(self.otter.sorted_values[self.x41]))
-            self.xs42.append(float(self.otter.sorted_values[self.x42]))
-        self.ys41.append(float(self.otter.sorted_values[self.y41]))
-        self.ys42.append(float(self.otter.sorted_values[self.y42]))
+            x41_val = float(self.otter.sorted_values.get(self.x41, 0.0))
+            x42_val = float(self.otter.sorted_values.get(self.x42, 0.0))
+            self.xs41.append(x41_val)
+            self.xs42.append(x42_val)
+
+        y41_val = float(self.otter.sorted_values.get(self.y41, 0.0))
+        y42_val = float(self.otter.sorted_values.get(self.y42, 0.0))
+        self.ys41.append(y41_val)
+        self.ys42.append(y42_val)
 
         self.ax4.clear()
         self.ax4.set_xlabel("Time (s)")
@@ -142,14 +154,20 @@ class live_plotter():
 
 
         if self.x51 == "time" and self.x52 == "time":
-            self.xs51.append(float(time.time() - self.start_time))
+            t = float(time.time() - self.start_time)
+            self.xs51.append(t)
             self.xs52 = self.xs51
-
         else:
-            self.xs51.append(float(self.otter.sorted_values[self.x51]))
-            self.xs52.append(float(self.otter.sorted_values[self.x52]))
-        self.ys51.append(float(self.otter.sorted_values[self.y51]))
-        self.ys52.append(float(self.otter.sorted_values[self.y52]))
+            x51_val = float(self.otter.sorted_values.get(self.x51, 0.0))
+            x52_val = float(self.otter.sorted_values.get(self.x52, 0.0))
+            self.xs51.append(x51_val)
+            self.xs52.append(x52_val)
+
+        y51_val = float(self.otter.sorted_values.get(self.y51, 0.0))
+        y52_val = float(self.otter.sorted_values.get(self.y52, 0.0))
+        self.ys51.append(y51_val)
+        self.ys52.append(y52_val)
+
 
         self.ax5.clear()
         self.ax5.set_xlabel("Time (s)")

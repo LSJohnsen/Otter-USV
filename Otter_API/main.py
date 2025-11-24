@@ -40,7 +40,7 @@ control_dt  = 0.1                                                               
 
 # When connecting to live otter and using target tracking or simulating circular target:
 ip = "10.0.5.1"
-port = 2009
+port = 20091
 start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)

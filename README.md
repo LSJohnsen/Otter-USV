@@ -12,7 +12,7 @@ Provides an API for interacting with the Otter USV. It includes modules for acce
 ---
 
 ### Bachelor Thesis Contributions
-Integrates the Otter API with a full simulation setup. It includes support for pattern creation, scenario handling, and extended data structures for analyzing vessel behavior. The thesis version preserves the modular layout from the course but adds refinement in control flow, data management, and state updating.
+Integrates the Otter API with the full simulation setup, adding surge and yaw PID control for target tracking. It includes support for pattern creation, scenario handling, and extended data structures for analyzing vessel behavior. The thesis version preserves the modular layout from the course but adds refinement in control flow, data management, and state updating.
 
 ---
 

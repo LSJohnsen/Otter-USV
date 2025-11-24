@@ -40,7 +40,7 @@ control_dt  = 0.1                                                               
 
 # When connecting to live otter and using target tracking or simulating circular target:
 ip = "10.0.5.1"
-port = 32001
+port = 2009
 start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
@@ -49,7 +49,7 @@ radius = 40                                                                     
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
-enable_live_plot = False                                                                                # Enables live plotting
+enable_live_plot = True                                                                                # Enables live plotting
 
 
 parameter_list = 3                                    # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4

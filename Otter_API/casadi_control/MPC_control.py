@@ -67,7 +67,7 @@ class NMPCControl:
 
         # control variables
         x = opti.variable(6,N+1)            # States
-        tau_u = opti.variable(3,N)      # Controls (N+1)?
+        tau_u = opti.variable(3,N)          # Controls (N+1)?
 
         #parameters
         x0 = opti.parameter(6)          # initial state for every control step 

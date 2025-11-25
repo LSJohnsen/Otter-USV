@@ -37,34 +37,89 @@ class live_guidance():
         self.otter_ned_pos = [0, 0]
         self.total_distance_to_target = 0.0
         self.counter = 0
-
+        self.yaw_setpoint = 0.0 #for pid heading
         self.last_valid_state = np.zeros(6)
 
-    # validate values for nmpc 
-    def _valid_value(self, key, default=0.0):
     
-        val = self.otter.sorted_values.get(key, default)
+    # filter signals by signals are floats and a finite values
+    def _confirm_signal(self, key, default=0.0):
+        values = self.otter.sorted_values.get(key, default)
         try:
-            val = float(val)
+            values = float(values)
         except (TypeError, ValueError):
             return default
-        if not math.isfinite(val):
-            return default
-        return val
-    
+        if not math.isfinite(values):
+            return values
+
+    # Filter signals to previous value if the new signal is larger than specified difference limit (prevent nmpc crash)
+    def _filter_signal(self, new_values, previous_values, difference_limit=None, relative_limit=None):
+        if previous_values is None:
+            return new_values
+        value_diff = new_values - previous_values 
+
+        # Return previous reading if change is too high (hard limit) (gps errors)
+        if difference_limit is not None and abs(value_diff) > difference_limit:
+            return previous_values
+
+        # Return previous reading if change is too large relative to the previous reading
+        if relative_limit is not None:
+            previous = max(abs(previous_values), 1e-6)
+            if abs(value_diff) / previous > relative_limit:
+                return previous_values
+        
+        return new_values
+
     def current_state(self):
         self.otter.update_values()
+        
+        # raw values if not inf 
+        x_raw   = self._confirm_signal("north_from_observer", 0.0)
+        y_raw   = self._confirm_signal("east_from_observer", 0.0)
+        psi_raw = self._confirm_signal("current_angle", 0.0)   
 
-        x   = self.otter.sorted_values["north_from_observer"]
-        y   = self.otter.sorted_values["east_from_observer"]
-        psi = self.otter.sorted_values["current_angle"]          # heading [rad]
+        u_raw   = self._confirm_signal("speed_n", 0.0)
+        v_raw   = self._confirm_signal("speed_e", 0.0)
+        r_raw   = self._confirm_signal("current_yaw_rate", 0.0)
+      
+        state = np.array([x_raw, y_raw, psi_raw, u_raw, v_raw, r_raw])
+        self.last_valid_state = state                
+        
+        # Initial state
+        if self.last_valid_state is None:
+            state = np.array([x_raw, y_raw, psi_raw, u_raw, v_raw, r_raw])
+            self.last_valid_state = state
+            return state          
 
-        u   = self.otter.sorted_values["speed_n"]                # surge velocity
-        v   = self.otter.sorted_values["speed_e"]                # sway velocity
-        r   = self.otter.sorted_values["current_yaw_rate"]       # yaw rate
+        x_prev, y_prev, psi_prev, u_prev, v_prev, r_prev = self.last_valid_state
+        # Controller limits
 
-        state = np.array([x, y, psi, u, v, r])
-        self.last_valid_state = state                           # update valid values
+        dt = self.cycletime            # sampling time 
+        u_max = 2.0                    # max surge 
+        r_max = 20.0 * math.pi/180.0   # max yaw 
+
+        max_pos_change = u_max * dt    # Check changes in surge/heading are valid for timestep
+        max_psi_change = r_max * dt   
+
+        x = self._filter_signal(x_raw, x_prev, difference_limit=max_pos_change)
+        y = self._filter_signal(y_raw, y_prev, difference_limit=max_pos_change)
+
+        if psi_raw != psi_prev:
+            psi_difference = (psi_raw - psi_prev + math.pi) % (2*math.pi) - math.pi # [-pi,pi] 
+            psi_new = psi_prev + psi_difference # add difference to new
+            psi = self._filter_signal(psi_new, psi_prev, difference_limit=max_psi_change)
+        else:
+            psi = psi_raw
+        
+
+        # max 50% velocity change per reading
+        u = self._filter_signal(u_raw, u_prev, relative_limit=0.5) 
+        v = self._filter_signal(v_raw, v_prev, relative_limit=0.5)
+        r = self._filter_signal(r_raw, r_prev, relative_limit=0.5)
+        
+
+        state = np.array([x, y, psi, u, v, r], dtype=float)
+        self.last_valid_state = state
+
         return state
     
     
@@ -95,7 +150,7 @@ class live_guidance():
             while True:
                 start_time = time.time()
 
-                # --- choose controller ---
+                
                 if self.use_nmpc:
                     tau_X, tau_N = self.calculate_forces_nmpc()
                 else:
@@ -104,7 +159,7 @@ class live_guidance():
                 # send torques to Otter
                 self.otter.controller_inputs_torque(tau_X, tau_N, self.surge_setpoint)
 
-                # logging (same for both controllers)
+                # logging
                 self.otter.sorted_values["north_error"] = self.north_error
                 self.otter.sorted_values["east_error"] = self.east_error
                 self.otter.sorted_values["distance_to_target"] = self.distance_to_target
@@ -354,17 +409,19 @@ class live_guidance():
 
     def calculate_forces_nmpc(self):
 
-        self.otter.update_values()
-        init_state = self.current_state()
-
+        init_state = np.asarray(self.current_state(), dtype=float)
+        
+        if not np.all(np.isfinite(init_state)):
+            print("NMPC: non-finite init_state, skipping control step:", init_state)
+            return 0.0, 0.0
         
         target_reference = np.array([
             self.target_ne_pos[0],    # x_ref (north)
             self.target_ne_pos[1],    # y_ref (east)
-        ])
+        ], dtype=float)
 
         tau = self.nmpc.solve_control(init_state, target_reference)
-        tau_X, tau_N = tau[0], tau[1]
+        tau_X, tau_N = float(tau[0]), float(tau[1])
         return tau_X, tau_N
 
 

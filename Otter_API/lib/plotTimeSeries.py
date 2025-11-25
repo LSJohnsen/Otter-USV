@@ -16,7 +16,13 @@ from lib.gnc import ssa
 import matplotlib
 matplotlib.use('TkAgg')
 import mpl_toolkits.mplot3d.axes3d as p3
+from matplotlib.patches import RegularPolygon
+from matplotlib.collections import PatchCollection
 import matplotlib.animation as animation
+from matplotlib.patches import Polygon
+from matplotlib.patches import Circle
+import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 
 legendSize = 10  # legend size
 figSize1 = [25, 13]  # figure1 size in cm
@@ -294,12 +300,11 @@ def plot2D(simData, numDataPoints, FPS, filename, figNo, targetData, figSize1=(1
 
 
 
-
 def plotPosTar(simTime, simData, figNo, targetData):
-    x = simData[:, 0]
-    y = simData[:, 1]
+    usv_x = simData[:, 0]
+    usv_y = simData[:, 1]
 
-    targetData = targetData[:-1]
+    targetData = targetData[1:-1]
     tar_x = targetData[:, 1]
     tar_y = targetData[:, 0]
 
@@ -308,7 +313,7 @@ def plotPosTar(simTime, simData, figNo, targetData):
     )
     plt.grid()
 
-    plt.plot(y, x, tar_x, tar_y, "--")
+    plt.plot(usv_y, usv_x, tar_x, tar_y, "--")
     plt.legend(["North-East positions (m)", "Target position (m)"], fontsize=14)
     plt.tick_params(axis='both', which='major', labelsize=14)
     plt.grid()
@@ -333,3 +338,128 @@ def plotSpeed(simTime, simData, figNo):
     plt.tick_params(axis='both', which='major', labelsize=14)
     plt.grid()
 
+
+
+from matplotlib.lines import Line2D
+from matplotlib.patches import Circle, Polygon
+from matplotlib.collections import PatchCollection
+
+def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="test_path"):
+    targetData = targetData[1:-1]
+
+    n_common = min(len(simData), len(targetData), len(simTime))
+    simTime   = simTime[:n_common]
+    usv_north = simData[:n_common, 0]
+    usv_east  = simData[:n_common, 1]
+    yaw       = simData[:n_common, 5]
+    tar_north = targetData[:n_common, 0]
+    tar_east  = targetData[:n_common, 1]
+
+    t_norm = ((simTime - simTime[0]) / (simTime[-1] - simTime[0])).ravel()
+
+    n_marks   = 15
+    mark_idx  = np.linspace(0, n_common - 1, n_marks + 1, dtype=int)
+    mark_cols = t_norm[mark_idx]
+    psi_marks = yaw[mark_idx]
+
+    cmap = plt.cm.viridis
+    norm = plt.Normalize(vmin=0.0, vmax=1.0)
+
+    plt.figure(figNo,
+               figsize=(cm2inch(figSize1[0]), cm2inch(figSize1[1])),
+               dpi=dpiValue)
+    ax = plt.gca()
+    ax.grid()
+
+    # thin paths (these provide the line labels)
+    ax.plot(tar_east, tar_north,
+            color="C0", lw=1.0, linestyle="--",
+            label="Target path (m)")
+    ax.plot(usv_east, usv_north,
+            color="C1", lw=1.0,
+            label="USV path (m)")
+
+    # target circles (data-space)
+    target_patches = []
+    circle_radius = 1.0
+    for x, y in zip(tar_east[mark_idx], tar_north[mark_idx]):
+        target_patches.append(Circle((x, y), radius=circle_radius))
+
+    pc_target = PatchCollection(
+        target_patches,
+        facecolor=cmap(norm(mark_cols)),
+        edgecolor="black",
+        linewidth=0.7,
+        zorder=3,
+    )
+
+    # USV triangles (data-space)
+    L, W = 2.0, 1.08
+    patches = []
+    for k, angle in zip(mark_idx, psi_marks):
+        pts_body = np.array([[ L,    0.0],
+                             [-L/2, -W ],
+                             [-L/2,  W ]])
+        c, s = np.cos(angle), np.sin(angle)
+        R_ne = np.array([[c, -s],
+                         [s,  c]])
+        pts_ne = pts_body @ R_ne.T
+        pts_plot = np.column_stack((pts_ne[:, 1], pts_ne[:, 0]))
+        pts_plot[:, 0] += usv_east[k]
+        pts_plot[:, 1] += usv_north[k]
+        patches.append(Polygon(pts_plot))
+
+    pc = PatchCollection(
+        patches,
+        edgecolor="black",
+        linewidth=0.6,
+        zorder=4,
+    )
+
+    ax.add_collection(pc_target)
+    ax.add_collection(pc)
+
+    ax.set_xlabel("East (m)")
+    ax.set_ylabel("North (m)")
+    ax.set_aspect("equal", adjustable="box")
+    ax.tick_params(axis="both", which="major", labelsize=14)
+
+    # normalised viewbox
+    all_east  = np.concatenate([tar_east, usv_east])
+    all_north = np.concatenate([tar_north, usv_north])
+    min_e, max_e = all_east.min(),  all_east.max()
+    min_n, max_n = all_north.min(), all_north.max()
+    width  = max_e - min_e
+    height = max_n - min_n
+    pad    = 0.2 * max(width, height)
+    ax.set_xlim(min_e - pad, max_e + pad)
+    ax.set_ylim(min_n - pad, max_n + pad)
+
+    # -------- legend: lines + proxies --------
+    line_handles, line_labels = ax.get_legend_handles_labels()
+
+    target_proxy = Line2D(
+        [], [], linestyle="None",
+        marker="o", markersize=8,
+        markerfacecolor="0.6", markeredgecolor="0.3",
+        label="Target position",
+    )
+
+    usv_proxy = Line2D(
+        [], [], linestyle="None",
+        marker=(3, 0, 0),
+        markersize=10,
+        markerfacecolor="0.6", markeredgecolor="0.3",
+        label="USV position & heading",
+    )
+
+    ax.legend(handles=line_handles + [target_proxy, usv_proxy],
+              fontsize=10,
+              loc="center left",
+              bbox_to_anchor=(1.02, 0.5))
+
+    plt.tight_layout()
+    
+    if savePlot == True:
+        plt.savefig("logs/plots/" + plotName + ".png",bbox_inches='tight')
+    

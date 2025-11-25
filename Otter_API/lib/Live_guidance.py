@@ -233,6 +233,7 @@ class live_guidance():
 
                 omega = v / radius
                 theta = omega * (time.time() - self.function_time)
+                
                 self.target_ne_pos = [start_north + radius * np.cos(theta), start_east + radius * np.sin(theta)]
 
                 tau_X, tau_N = self.calculate_forces_pid()

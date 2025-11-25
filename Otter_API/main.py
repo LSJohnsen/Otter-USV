@@ -26,11 +26,11 @@ use_moving_target = True                                                        
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [-1.5, 0.0]                                                                    # Movement of the moving target each second
+moving_target_increase = [-1, 0.0]                                                                      # Movement of the moving target each second
 target_radius = 1                                                                                       # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
-circular_target = True                                                                                  # Make the moving target a circle in the simulation
+circular_target = True                                                                                 # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
@@ -41,7 +41,7 @@ control_dt  = 0.1                                                               
 # When connecting to live otter and using target tracking or simulating circular target:
 ip = "10.0.5.1"
 port = 2009
-start_north = -20                                                                                       # Target north position from referance point
+start_north = -20                                                                                      # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
@@ -58,6 +58,7 @@ parameter_list = 3                                    # Tuning parameters, 1 for
 trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0, "yaw_kp" : 37, "yaw_ki" : 4, "yaw_kd" : 8}
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
+pp_04 = {"surge_kp" : 239.30, "surge_ki" : 2, "surge_kd" : 2, "yaw_kp" : 100, "yaw_ki" : 0, "yaw_kd" : 190.08}
 test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
 
 #############################################################################################################################################################################################################################################################
@@ -128,7 +129,7 @@ yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)          
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
 
-#initialize params for nmpc
+#initialize nmpc
 otter_6dof_params = usv_params_6dof()
 otter_3dof = Otter3DOF(otter_6dof_params)
 nmpc = NMPCControl(
@@ -179,7 +180,7 @@ def exit_handler():
 
 def main(option):
     if option == 1:
-        #sim_type = int(input("Enter 1 for PID control or 2 for NMPC control: "))
+        
         if ctrl_option == 2:
             [simTime, simData, targetData] = simulator.simulate(N, 
                                                                 sampleTime, 
@@ -190,7 +191,7 @@ def main(option):
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
                                                                                                             #
-            plotPosTar(simTime, simData, 4, targetData)                                                     # Plotting
+            plotPosTar2(simTime, simData, 4, targetData, savePlot=True)                                                     # Plotting
             plotSpeed(simTime, simData, 5)                                                                  #
             if animate_path:
                 print("Checking data before animation...")
@@ -216,7 +217,7 @@ def main(option):
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
                                                                                                             #
-            plotPosTar(simTime, simData, 4, targetData)                                                     # Plotting
+            plotPosTar2(simTime, simData, 4, targetData)                                                     # Plotting
             plotSpeed(simTime, simData, 5)                                                                  #
             if animate_path:
                 print("Checking data before animation...")
@@ -280,9 +281,6 @@ def main(option):
 
 if __name__ == "__main__":
     main(option)
-
-
-
 
 
 

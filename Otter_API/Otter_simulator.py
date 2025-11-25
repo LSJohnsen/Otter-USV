@@ -4,6 +4,7 @@ from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
 import pandas as pd
 from numba import jit, cuda
 from pathlib import Path
+from lib.performance_indices import IAE
 
 class otter_simulator():
 
@@ -21,6 +22,9 @@ class otter_simulator():
         self.verbose = verbose
         self.store_force_file = store_force_file
         self.circular_target = circular_target
+        self.target_circle_start_x = 0
+        self.target_circle_start_y = 0
+        self.target_radius = 40
         
         self.max_force = 200                                                                    # Combined max force in yaw and surge. Used for saturation of control forces
         self.V_c = 0.0                                                                          # Starting speed (m/s)
@@ -48,6 +52,8 @@ class otter_simulator():
         self.n1neg = False
         self.n2neg = False
 
+        self.IAE_dist = 0.0
+        self.IAE_head = 0.0
 
 
         ##################################################################################################################################################################################################################
@@ -212,7 +218,7 @@ class otter_simulator():
 
         # Main simulation loop
         i = 0
-
+        distanceHistory = 0
         while i < (N + 1):
             t = i * sampleTime
 
@@ -248,8 +254,8 @@ class otter_simulator():
                 # Calculate distance to target:
                 north_distance = self.moving_target[0] - eta[0]
                 east_distance = self.moving_target[1] - eta[1]
-
-                self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
+                           
+                self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2) #this
                 dist_tot = dist_tot + self.distance_to_target
 
                 if self.distance_to_target <= self.surge_setpoint:
@@ -258,6 +264,9 @@ class otter_simulator():
                     self.distance_to_target = 0
 
                 self.yaw_setpoint = math.atan2(east_distance, north_distance)
+                heading_error  = (yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi #this
+
+
                 #self.yaw_setpoint = self.yaw_setpoint  * (180 / math.pi)
                 if not self.circular_target:
                     # Increases the target values every second
@@ -287,8 +296,8 @@ class otter_simulator():
                     omega = 1.5 / 50
                     asd = asd + sampleTime
                     theta = omega * asd
-                    self.moving_target[0] = -20 + 40 * np.cos(theta)
-                    self.moving_target[1] = -20 + 40 * np.sin(theta)
+                    self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
+                    self.moving_target[1] = self.target_circle_start_y -20 + self.target_radius * np.sin(theta)
 
 
 
@@ -404,9 +413,15 @@ class otter_simulator():
             newTargetData = [self.moving_target[0], self.moving_target[1]]
             self.targetData = np.vstack([self.targetData, newTargetData])
 
+
+            # IAE from lib
+            heading_error  = (self.yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi
+            self.IAE_dist, self.IAE_head = IAE(self.IAE_dist, self.IAE_head, heading_error, self.distance_to_target, sampleTime)
+            
             i = i + 1
-
-
+        
+        print(f"IAE distance = {self.IAE_dist}")
+        print(f"IAE heading  = {self.IAE_head}")
         print(f"AVG distance to target = {dist_tot/i}")
 
         simTime = np.arange(start=0, stop=t+sampleTime, step=sampleTime)[:, None]
@@ -455,7 +470,7 @@ class otter_simulator():
             for i in range(N + 1):
                 t = i * sampleTime
 
-                # ------------------ target handling (same as simulate) ------------------
+                # target handling sane as simulate
                 if self.use_target_coordinates:
                     north_distance = self.target_coordinates[0] - eta[0]
                     east_distance  = self.target_coordinates[1] - eta[1]
@@ -475,8 +490,7 @@ class otter_simulator():
                             print(f"Time is: {counter * sampleTime}s!")
                             break
 
-                    self.yaw_setpoint = math.atan2(east_distance, north_distance)
-
+                    self.yaw_setpoint = math.atan2(east_distance, north_distance) 
                 if self.use_moving_target:                                                                  # If a moving target is used
                 # Calculate distance to target:
                     north_distance = self.moving_target[0] - eta[0]
@@ -491,6 +505,8 @@ class otter_simulator():
                         self.distance_to_target = 0
 
                     self.yaw_setpoint = math.atan2(east_distance, north_distance)
+                    
+                    
                     #self.yaw_setpoint = self.yaw_setpoint  * (180 / math.pi)
                     if not self.circular_target:
                         # Increases the target values every second
@@ -549,9 +565,7 @@ class otter_simulator():
                 tau_X = float(last_tau_u[0])
                 tau_N = float(last_tau_u[2])  # ignore sway component
 
-                # -----------------------------------------------------------------------
-                # same saturation and allocation logic as PID version
-                # -----------------------------------------------------------------------
+               
                 self.tau_X = tau_X
                 self.tau_N = tau_N
 
@@ -606,6 +620,9 @@ class otter_simulator():
                 signals = np.append(np.append(np.append(eta, nu), u_control), u_actual)
                 simData = np.vstack([simData, signals])
 
+                heading_error  = (self.yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi           
+                self.IAE_dist, self.IAE_head = IAE(self.IAE_dist, self.IAE_head, heading_error, self.distance_to_target, sampleTime)
+
                 # propagate dynamics
                 [nu, u_actual] = self.dynamics(eta, nu, u_actual, u_control, sampleTime)
                 eta = attitudeEuler(eta, nu, sampleTime)
@@ -627,6 +644,8 @@ class otter_simulator():
                 newTargetData = [self.moving_target[0], self.moving_target[1]]
                 self.targetData = np.vstack([self.targetData, newTargetData])
 
+            print(f"IAE distance = {self.IAE_dist}")
+            print(f"IAE heading  = {self.IAE_head}")
             print(f"AVG distance to target = {dist_tot / max(1, counter)}")
 
             simTime = np.arange(start=0, stop=t + sampleTime, step=sampleTime)[:, None]
@@ -730,4 +749,6 @@ class otter_simulator():
         u_actual = np.array(n, float)
 
         return nu, u_actual
+
+
 

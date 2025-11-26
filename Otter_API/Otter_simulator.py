@@ -698,7 +698,7 @@ class otter_simulator():
                 print(f"ISU = {self.ISU:.2f}")
                 print(f"IAU = {self.IAU:.2f}")
                 print(f"AVG distance to target = {dist_tot/i:.2f}")
-                print(f"Reached target in {reached_target_time:2f}s (0 if target not reached)")
+                print(f"Reached target in {reached_target_time:.2f}s (0 if target not reached)")
                 print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
 
                 param_dict = {

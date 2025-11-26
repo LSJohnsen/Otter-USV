@@ -1,3 +1,14 @@
+import os
+import sys
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+OTTER_API_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+
+if OTTER_API_DIR not in sys.path:
+    sys.path.insert(0, OTTER_API_DIR)
+
+
+
 import numpy as np
 import math
 from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
@@ -49,8 +60,12 @@ class OtterSimDRL():
         self.tau_N = 0.0
 
 
-        HERE = Path(__file__).resolve().parent
-        csv_path = HERE / "lib" / "throttle_map_v2_noneg.csv"
+        HERE = Path(__file__).resolve().parent          # Otter_API/DRL_control
+        OTTER_API_DIR = HERE.parent                     # Otter_API
+
+        csv_path = OTTER_API_DIR / "lib" / "throttle_map_v2_noneg.csv"
+
+        self.throttledf = pd.read_csv(csv_path, index_col=0, sep=";")
 
         self.throttledf = pd.read_csv(csv_path, index_col=0, sep=";")
         self.throttledf = self.throttledf.dropna(axis=1, how='all')
@@ -191,7 +206,7 @@ class OtterSimDRL():
 
 
                         #######################################################################
-                        # MODIFIED TO WORK WITH DRL MODEL USING FORCES AND SEPARATE TIMESTEPS #
+                        # SIMULATOR TO WORK WITH DRL MODEL USING FORCES AND SEPARATE TIMESTEPS#
                         #######################################################################
 
     def initial_state(self, eta_initial):

@@ -440,10 +440,12 @@ class otter_simulator():
             self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
             self.ISU = self.metrics.get_ISU()
             self.ISU_normalized = self.metrics.get_ISU_normalized()
+            self.IAU = self.metrics.get_IAU()
             print(f"IAE distance = {self.IAE_dist:.2f}")
             print(f"IAE heading  = {self.IAE_head:.2f}")
             print(f"ISU normalized = {self.ISU_normalized:.2f}")
             print(f"ISU = {self.ISU:.2f}")
+            print(f"IAU = {self.IAU:.2f}")
             print(f"AVG distance to target = {dist_tot/i:.2f}")
             print(f"Reached target in {reached_target_time:2f}s (0 if target not reached)")
             print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
@@ -454,6 +456,7 @@ class otter_simulator():
                 "IAE_heading": self.IAE_head,
                 "ISU": self.ISU,
                 "ISU_normalized": self.ISU_normalized,
+                "IAU": self.IAU,
                 "avg_distance_to_target": dist_tot / i,
                 "reached_target_time": reached_target_time,
                 "reached_yaw_target_time": self.reached_yaw_target_time}
@@ -686,21 +689,25 @@ class otter_simulator():
 
             if self.verbose:
                 self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
-                self.ISU_normalized = self.metrics.get_ISU_normalized()
                 self.ISU = self.metrics.get_ISU()
+                self.ISU_normalized = self.metrics.get_ISU_normalized()
+                self.IAU = self.metrics.get_IAU()
                 print(f"IAE distance = {self.IAE_dist:.2f}")
                 print(f"IAE heading  = {self.IAE_head:.2f}")
                 print(f"ISU normalized = {self.ISU_normalized:.2f}")
+                print(f"ISU = {self.ISU:.2f}")
+                print(f"IAU = {self.IAU:.2f}")
                 print(f"AVG distance to target = {dist_tot/i:.2f}")
                 print(f"Reached target in {reached_target_time:2f}s (0 if target not reached)")
                 print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
 
                 param_dict = {
-                    "Control_method": "NMPC",
+                    "Control_method": "PID",
                     "IAE_distance": self.IAE_dist,
                     "IAE_heading": self.IAE_head,
                     "ISU": self.ISU,
                     "ISU_normalized": self.ISU_normalized,
+                    "IAU": self.IAU,
                     "avg_distance_to_target": dist_tot / i,
                     "reached_target_time": reached_target_time,
                     "reached_yaw_target_time": self.reached_yaw_target_time}

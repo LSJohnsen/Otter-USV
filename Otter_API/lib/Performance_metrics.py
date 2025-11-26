@@ -7,6 +7,7 @@ class PerformanceMetrics:
         self.IAE_dist = 0.0
         self.IAE_head = 0.0
         self.ISU_sum = 0.0    # raw integral of u^2
+        self.IAU = 0.0
         self.time = 0.0       # total simulation time
 
     def reset(self):

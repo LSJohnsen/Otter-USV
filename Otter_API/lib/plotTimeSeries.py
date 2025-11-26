@@ -29,6 +29,9 @@ figSize1 = [25, 13]  # figure1 size in cm
 figSize2 = [25, 13]  # figure2 size in cm
 dpiValue = 150  # figure dpi value
 
+#            signals = np.append(np.append(np.append(eta, nu), u_control), u_actual)
+#            simData = [(eta, nu), u_control, u_actual]
+
 
 def R2D(value):  # radians to degrees
     return value * 180 / math.pi
@@ -132,39 +135,64 @@ def plotVehicleStates(simTime, simData, figNo):
 # plotControls(simTime, simData) plots the vehicle control inputs versus time
 # in figure no. figNo
 def plotControls(simTime, simData, vehicle, figNo):
-
     DOF = 6
-
-    # Time vector
     t = simTime
 
-    plt.figure(
-        figNo, figsize=(cm2inch(figSize2[0]), cm2inch(figSize2[1])), dpi=dpiValue
-    )
+    # Extract all control and actual signals (for scaling)
+    u_cmd_all = simData[:, 2 * DOF : 2 * DOF + vehicle.dimU]
+    u_act_all = simData[:, 2 * DOF + vehicle.dimU : 2 * DOF + 2 * vehicle.dimU]
 
-    # Columns and rows needed to plot vehicle.dimU control inputs
+    # Global min/max for all controls (for consistent scaling)
+    global_min = min(u_cmd_all.min(), u_act_all.min())
+    global_max = max(u_cmd_all.max(), u_act_all.max())
+    span = global_max - global_min if global_max > global_min else 1.0
+    pad = 0.1 * span
+
     col = 2
     row = int(math.ceil(vehicle.dimU / col))
 
-    # Plot the vehicle.dimU active control inputs
-    for i in range(0, vehicle.dimU):
+    fig, axs = plt.subplots(
+        row,
+        col,
+        num=figNo,
+        figsize=(cm2inch(figSize2[0]), cm2inch(figSize2[1])),
+        dpi=dpiValue,
+        sharex=True,
+    )
 
-        u_control = simData[:, 2 * DOF + i]  # control input, commands
-        u_actual = simData[:, 2 * DOF + vehicle.dimU + i]  # actual control input
+    # axs is 2D if row>1; flatten for easy indexing
+    axs = np.atleast_1d(axs).ravel()
 
-        if vehicle.controls[i].find("deg") != -1:  # convert angles to deg
+    for i in range(vehicle.dimU):
+        ax = axs[i]
+
+        u_control = u_cmd_all[:, i]
+        u_actual  = u_act_all[:, i]
+
+        if "deg" in vehicle.controls[i]:
             u_control = R2D(u_control)
-            u_actual = R2D(u_actual)
+            u_actual  = R2D(u_actual)
 
-        plt.subplot(row, col, i + 1)
-        plt.plot(t, u_control, t, u_actual)
-        plt.legend(
-            [vehicle.controls[i] + ", command", vehicle.controls[i] + ", actual"],
-            fontsize=14,
-        )
-        plt.xlabel("Time (s)", fontsize=14)
-        plt.tick_params(axis='both', which='major', labelsize=14)
-        plt.grid()
+        ax.plot(t, u_control, label=vehicle.controls[i] + ", command", linewidth=0.8)
+        ax.plot(t, u_actual,  label=vehicle.controls[i] + ", actual",  linewidth=0.8)
+
+        ax.set_xlim(t[0], t[-1])
+        ax.set_ylim(global_min - pad, global_max + pad)
+
+        if i >= (vehicle.dimU - col):  # last row: label x-axis
+            ax.set_xlabel("Time (s)", fontsize=12)
+
+        ax.tick_params(axis="both", which="major", labelsize=12)
+        ax.grid(True)
+
+        ax.legend(fontsize=9, loc="upper right")
+
+    # Hide any unused subplots if vehicle.dimU is odd
+    for j in range(vehicle.dimU, len(axs)):
+        axs[j].set_visible(False)
+
+    fig.tight_layout(pad=0.3)
+
 
 
 # plot3D(simData,numDataPoints,FPS,filename,figNo) plots the vehicles position (x, y, z) in 3D
@@ -333,10 +361,42 @@ def plotSpeed(simTime, simData, figNo):
     )
     plt.grid()
 
-    plt.plot(x, U)
-    plt.legend(["Speed (m/s)"], fontsize=14)
+    plt.plot(x, U, linewidth=0.8)
+    plt.legend(["Total velocity (m/s)"], fontsize=14)
     plt.tick_params(axis='both', which='major', labelsize=14)
+
+def plotSurge(simTime, simData, figNo):
+    x = simTime
+
+    u = simData[:, 6]
+
+
+    plt.figure(
+        figNo, figsize=(cm2inch(figSize1[0]), cm2inch(figSize1[1])), dpi=dpiValue
+    )
     plt.grid()
+
+    plt.plot(x, u, linewidth=0.8)
+    plt.legend(["Surge velocity (m/s)"], fontsize=14)
+    plt.tick_params(axis='both', which='major', labelsize=14)
+
+#            simData = [(eta, nu), u_control, u_actual]
+# eta 0-5
+# nu 6-11
+def plotYaw(simTime, simData, figNo):
+    x = simTime
+
+    r = simData[:, 11]
+
+
+    plt.figure(
+        figNo, figsize=(cm2inch(figSize1[0]), cm2inch(figSize1[1])), dpi=dpiValue
+    )
+    plt.grid()
+
+    plt.plot(x, r, linewidth=0.8)
+    plt.legend(["Yaw rate (rad/s)"], fontsize=14)
+    plt.tick_params(axis='both', which='major', labelsize=14)
 
 
 
@@ -415,6 +475,7 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
         linewidth=0.6,
         zorder=4,
     )
+    pc.set_facecolor(cmap(norm(mark_cols)))   # <- add this line
 
     ax.add_collection(pc_target)
     ax.add_collection(pc)
@@ -435,7 +496,7 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
     ax.set_xlim(min_e - pad, max_e + pad)
     ax.set_ylim(min_n - pad, max_n + pad)
 
-    # -------- legend: lines + proxies --------
+    
     line_handles, line_labels = ax.get_legend_handles_labels()
 
     target_proxy = Line2D(

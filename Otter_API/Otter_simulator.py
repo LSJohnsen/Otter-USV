@@ -4,7 +4,8 @@ from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
 import pandas as pd
 from numba import jit, cuda
 from pathlib import Path
-from lib.performance_indices import IAE
+from lib.Performance_metrics import PerformanceMetrics
+from logs.IO import log_params
 
 class otter_simulator():
 
@@ -52,8 +53,8 @@ class otter_simulator():
         self.n1neg = False
         self.n2neg = False
 
-        self.IAE_dist = 0.0
-        self.IAE_head = 0.0
+        #performance indices
+        self.metrics = PerformanceMetrics()
 
 
         ##################################################################################################################################################################################################################
@@ -207,7 +208,7 @@ class otter_simulator():
 
         # Table used to store the simulation data
         simData = np.empty([0, 2 * DOF + 2 * self.dimU], float)
-
+        self.metrics.reset()
 
         # Sets the first target from the target list
         self.target_counter = 0
@@ -414,15 +415,20 @@ class otter_simulator():
             self.targetData = np.vstack([self.targetData, newTargetData])
 
 
-            # IAE from lib
-            heading_error  = (self.yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi
-            self.IAE_dist, self.IAE_head = IAE(self.IAE_dist, self.IAE_head, heading_error, self.distance_to_target, sampleTime)
+            # IAE ISU indices from lib
+            self.metrics.update(
+                distance_to_target=self.distance_to_target,
+                heading_error=heading_error,
+                u1=u_actual[0],
+                u2=u_actual[1],
+                dt=sampleTime,
+            )
+            
+            
             
             i = i + 1
         
-        print(f"IAE distance = {self.IAE_dist}")
-        print(f"IAE heading  = {self.IAE_head}")
-        print(f"AVG distance to target = {dist_tot/i}")
+        
 
         simTime = np.arange(start=0, stop=t+sampleTime, step=sampleTime)[:, None]
         targetData = self.targetData
@@ -431,8 +437,28 @@ class otter_simulator():
             np.savetxt("force_array.csv", self.force_array, delimiter=";", header="tau_X;tau_N", comments="")
 
         if self.verbose:
-            print(f"Reached target in {reached_target_time}s")
-            print(f"Reached yaw target in {self.reached_yaw_target_time}s")
+            self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
+            self.ISU = self.metrics.get_ISU()
+            self.ISU_normalized = self.metrics.get_ISU_normalized()
+            print(f"IAE distance = {self.IAE_dist:.2f}")
+            print(f"IAE heading  = {self.IAE_head:.2f}")
+            print(f"ISU normalized = {self.ISU_normalized:.2f}")
+            print(f"ISU = {self.ISU:.2f}")
+            print(f"AVG distance to target = {dist_tot/i:.2f}")
+            print(f"Reached target in {reached_target_time:2f}s (0 if target not reached)")
+            print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
+
+            param_dict = {
+                "Control_method": "PID",
+                "IAE_distance": self.IAE_dist,
+                "IAE_heading": self.IAE_head,
+                "ISU": self.ISU,
+                "ISU_normalized": self.ISU_normalized,
+                "avg_distance_to_target": dist_tot / i,
+                "reached_target_time": reached_target_time,
+                "reached_yaw_target_time": self.reached_yaw_target_time}
+
+            log_params(param_dict, filename="parameters.txt", verbose=self.verbose)
 
         return (simTime, simData, targetData)
 
@@ -621,13 +647,20 @@ class otter_simulator():
                 simData = np.vstack([simData, signals])
 
                 heading_error  = (self.yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi           
-                self.IAE_dist, self.IAE_head = IAE(self.IAE_dist, self.IAE_head, heading_error, self.distance_to_target, sampleTime)
+                
 
                 # propagate dynamics
                 [nu, u_actual] = self.dynamics(eta, nu, u_actual, u_control, sampleTime)
                 eta = attitudeEuler(eta, nu, sampleTime)
-
-                counter += 1
+                
+                self.metrics.update(
+                    distance_to_target=self.distance_to_target,
+                    heading_error=heading_error,
+                    u1=u_actual[0],
+                    u2=u_actual[1],
+                    dt=sampleTime,
+                )
+            
 
                 if self.verbose:
                     if counter % 100 == 0:
@@ -644,10 +677,7 @@ class otter_simulator():
                 newTargetData = [self.moving_target[0], self.moving_target[1]]
                 self.targetData = np.vstack([self.targetData, newTargetData])
 
-            print(f"IAE distance = {self.IAE_dist}")
-            print(f"IAE heading  = {self.IAE_head}")
-            print(f"AVG distance to target = {dist_tot / max(1, counter)}")
-
+                counter += 1
             simTime = np.arange(start=0, stop=t + sampleTime, step=sampleTime)[:, None]
             targetData = self.targetData
 
@@ -655,8 +685,27 @@ class otter_simulator():
                 np.savetxt("force_array.csv", self.force_array, delimiter=";", header="tau_X;tau_N", comments="")
 
             if self.verbose:
-                print(f"Reached target in {reached_target_time}s")
-                print(f"Reached yaw target in {self.reached_yaw_target_time}s")
+                self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
+                self.ISU_normalized = self.metrics.get_ISU_normalized()
+                self.ISU = self.metrics.get_ISU()
+                print(f"IAE distance = {self.IAE_dist:.2f}")
+                print(f"IAE heading  = {self.IAE_head:.2f}")
+                print(f"ISU normalized = {self.ISU_normalized:.2f}")
+                print(f"AVG distance to target = {dist_tot/i:.2f}")
+                print(f"Reached target in {reached_target_time:2f}s (0 if target not reached)")
+                print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
+
+                param_dict = {
+                    "Control_method": "NMPC",
+                    "IAE_distance": self.IAE_dist,
+                    "IAE_heading": self.IAE_head,
+                    "ISU": self.ISU,
+                    "ISU_normalized": self.ISU_normalized,
+                    "avg_distance_to_target": dist_tot / i,
+                    "reached_target_time": reached_target_time,
+                    "reached_yaw_target_time": self.reached_yaw_target_time}
+
+                log_params(param_dict, filename="parameters.txt", verbose=self.verbose)
 
             return (simTime, simData, targetData)
     

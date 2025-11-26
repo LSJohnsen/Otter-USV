@@ -1,0 +1,7 @@
+IAE_distance: 2008.7790717124658
+IAE_heading: 420.6837223360157
+ISU: 2333026.074302866
+ISU_normalized: 8748.410358116287
+avg_distance_to_target: 7.532544891677232
+reached_target_time: 16.1
+reached_yaw_target_time: 44.38

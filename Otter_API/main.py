@@ -13,6 +13,8 @@ from casadi_control.MPC_control import NMPCControl
 from casadi_control.lib.usv_params import usv_params_6dof
 from casadi_control.model_3dof import Otter3DOF
 
+from logs.IO import log_to_csv
+
 
 ##########################################################################################################################################################
 #                                                                      OPTIONS                                                                           #
@@ -27,8 +29,9 @@ target_list = [[0, 10000]]                                                      
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
 moving_target_increase = [-1, 0.0]                                                                      # Movement of the moving target each second
-target_radius = 1                                                                                       # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
+target_radius = 1                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
+log_simulation = True                                                                                   # Enable verbose for logging sim
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                 # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
@@ -58,7 +61,6 @@ parameter_list = 3                                    # Tuning parameters, 1 for
 trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0, "yaw_kp" : 37, "yaw_ki" : 4, "yaw_kd" : 8}
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
-pp_04 = {"surge_kp" : 239.30, "surge_ki" : 2, "surge_kd" : 2, "yaw_kp" : 100, "yaw_ki" : 0, "yaw_kd" : 190.08}
 test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
 
 #############################################################################################################################################################################################################################################################
@@ -187,12 +189,15 @@ def main(option):
                                                                 otter, 
                                                                 surge_PID, 
                                                                 yaw_PID)   # This runs the whole simulation
+            log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
                                                                                                             #
             plotPosTar2(simTime, simData, 4, targetData, savePlot=True)                                                     # Plotting
-            plotSpeed(simTime, simData, 5)                                                                  #
+            plotSpeed(simTime, simData, 5) 
+            plotSurge(simTime, simData, 6)
+            plotYaw(simTime, simData, 7)                                                                  #
             if animate_path:
                 print("Checking data before animation...")
                 print("simData size:", len(simData))
@@ -213,12 +218,15 @@ def main(option):
                                                         otter=otter,
                                                         nmpc=nmpc,
                                                         control_dt=control_dt)
+            log_to_csv(simTime, simData, targetData, filename="sim_log_nmpc.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
                                                                                                             #
-            plotPosTar2(simTime, simData, 4, targetData)                                                     # Plotting
-            plotSpeed(simTime, simData, 5)                                                                  #
+            plotPosTar2(simTime, simData, 4, targetData)                                                    # Plotting
+            #plotSpeed(simTime, simData, 5)
+            plotSurge(simTime, simData, 6)
+            plotYaw(simTime, simData, 7)                                                                 #
             if animate_path:
                 print("Checking data before animation...")
                 print("simData size:", len(simData))

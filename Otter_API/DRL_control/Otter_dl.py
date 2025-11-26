@@ -7,6 +7,9 @@ OTTER_API_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 if OTTER_API_DIR not in sys.path:
     sys.path.insert(0, OTTER_API_DIR)
 
+SAVE_DIR = os.path.join(CURRENT_DIR, "ppo_saves")   
+os.makedirs(SAVE_DIR, exist_ok=True)
+
 import Otter_api
 from DRL_control import Otter_simulator_DRL
 from lib.plotTimeSeries import *
@@ -363,12 +366,14 @@ if __name__ == "__main__":
 
         env = SubprocVecEnv([make_env() for _ in range(n_envs)])
 
-        checkpoint_model = "ppo_otter_checkpoint.zip"
-        checkpoint_vecnorm = "ppo_otter_checkpoint_vecnormalize.pkl"
+        checkpoint_model = os.path.join(SAVE_DIR, "ppo_otter_checkpoint.zip")
+        checkpoint_vecnorm = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize.pkl")
+        final_model = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
+        final_vecnorm = os.path.join(SAVE_DIR, "vecnormalize.pkl")
 
-        # If a previous checkpoint exists, resume from it; otherwise start fresh
+        # If a previous checkpoint exists, resume from it, otherwise start fresh
         if os.path.exists(checkpoint_model) and os.path.exists(checkpoint_vecnorm):
-            print("\nFound checkpoint. Loading model and VecNormalize to continue training...\n")
+            print("\nFound checkpoint. Loading model and VecNormalize to continue (remember to add options for inpt)\n")
             env = VecNormalize.load(checkpoint_vecnorm, env)
             model = PPO.load(checkpoint_model, env=env, device="cpu")
         else:
@@ -397,7 +402,7 @@ if __name__ == "__main__":
                 callback=IAE_callback,
             )
         except KeyboardInterrupt:
-            # On Ctrl+C: save checkpoint and exit cleanly
+            # ctrl+c save and exit
             print("\nKeyboardInterrupt detected. Saving checkpoint before exiting...")
             model.save(checkpoint_model)
             if isinstance(env, VecNormalize):

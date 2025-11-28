@@ -76,7 +76,7 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             )
 
 print("initialized otter api and simulator")
-
+        
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
 otter.dimU = len(otter.controls)
 
@@ -216,7 +216,7 @@ class OtterEnv(gym.Env):
             self.last_distance = distance_to_target
 
         if distance_to_target < self.simulator.surge_setpoint:
-            reward += 1.0
+            reward += 5.0 # test different here (oscillating at circular)
 
         return obs, reward, terminated, truncated, info
 

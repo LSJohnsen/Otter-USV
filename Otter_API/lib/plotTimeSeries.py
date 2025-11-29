@@ -7,6 +7,8 @@ plotControls(simTime, simData, vehicle, figNo)
 def plot3D(simData, numDataPoints, FPS, filename, figNo)
 
 Author:     Thor I. Fossen
+
+Modified
 """
 
 import math
@@ -23,6 +25,14 @@ from matplotlib.patches import Polygon
 from matplotlib.patches import Circle
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
+
+import os
+
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_THIS_DIR, ".."))
+PLOT_DIR = os.path.join(_PROJECT_ROOT, "logs", "plots")
+os.makedirs(PLOT_DIR, exist_ok=True)
 
 legendSize = 10  # legend size
 figSize1 = [25, 13]  # figure1 size in cm
@@ -133,7 +143,7 @@ def plotVehicleStates(simTime, simData, figNo):
 
 
 # plotControls(simTime, simData) plots the vehicle control inputs versus time
-# in figure no. figNo
+# in figure no. figNo denormalize
 def plotControls(simTime, simData, vehicle, figNo):
     DOF = 6
     t = simTime
@@ -160,7 +170,6 @@ def plotControls(simTime, simData, vehicle, figNo):
         sharex=True,
     )
 
-    # axs is 2D if row>1; flatten for easy indexing
     axs = np.atleast_1d(axs).ravel()
 
     for i in range(vehicle.dimU):
@@ -168,6 +177,21 @@ def plotControls(simTime, simData, vehicle, figNo):
 
         u_control = u_cmd_all[:, i]
         u_actual  = u_act_all[:, i]
+
+        # auto-rescale commands if they normalized 
+        ctrl_span = u_control.max() - u_control.min()
+        act_span  = u_actual.max() - u_actual.min()
+        if ctrl_span > 0 and act_span > 0:
+            # "normalized" if tiny span compared to actual and roughly within [-1, 1]
+            if ctrl_span < 3.0 and act_span > 5.0 * ctrl_span and u_control.min() >= -1.5 and u_control.max() <= 1.5:
+                # map [ctrl_min, ctrl_max] -> [act_min, act_max] for plotting
+                cmin, cmax = u_control.min(), u_control.max()
+                amin, amax = u_actual.min(),  u_actual.max()
+                # avoid zeor div
+                if cmax > cmin:
+                    u_control = (u_control - cmin) / (cmax - cmin)  # 0..1
+                    u_control = u_control * (amax - amin) + amin    # same scale as actual
+     
 
         if "deg" in vehicle.controls[i]:
             u_control = R2D(u_control)
@@ -179,15 +203,13 @@ def plotControls(simTime, simData, vehicle, figNo):
         ax.set_xlim(t[0], t[-1])
         ax.set_ylim(global_min - pad, global_max + pad)
 
-        if i >= (vehicle.dimU - col):  # last row: label x-axis
+        if i >= (vehicle.dimU - col):
             ax.set_xlabel("Time (s)", fontsize=12)
 
         ax.tick_params(axis="both", which="major", labelsize=12)
         ax.grid(True)
-
         ax.legend(fontsize=9, loc="upper right")
 
-    # Hide any unused subplots if vehicle.dimU is odd
     for j in range(vehicle.dimU, len(axs)):
         axs[j].set_visible(False)
 
@@ -400,9 +422,6 @@ def plotYaw(simTime, simData, figNo):
 
 
 
-from matplotlib.lines import Line2D
-from matplotlib.patches import Circle, Polygon
-from matplotlib.collections import PatchCollection
 
 def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="test_path"):
     targetData = targetData[1:-1]
@@ -521,6 +540,7 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
 
     plt.tight_layout()
     
-    if savePlot == True:
-        plt.savefig("logs/plots/" + plotName + ".png",bbox_inches='tight')
-    
+    if savePlot:
+        outfile = os.path.join(PLOT_DIR, plotName + ".png")
+        print(f"Saving plot to: {outfile}")
+        plt.savefig(outfile, bbox_inches='tight')

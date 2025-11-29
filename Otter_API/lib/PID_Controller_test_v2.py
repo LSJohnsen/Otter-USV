@@ -12,7 +12,7 @@ class PIDController:
         self.previous_time = None
 
 
-        self.integrator_limits = [0, 10]     # Limits the integrator in both regulators
+        self.integrator_limits = [-10, 20]     # Limits the integrator in both regulators
 
         self.previous_distance = None
 

@@ -62,7 +62,16 @@ FPS = 60                                                                        
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
 browser = 'chrome'
 
+CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint.zip")                                   # checkpoint model path
+CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize.pkl")
+FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
+FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
+
+CIRCLE_MODEL = os.path.join(SAVE_DIR, "circle_updated.zip")                             # circle model path 
+CIRCLE_VECNORM = os.path.join(SAVE_DIR, "circle_normalize_updated.pkl")
+
 otter = Otter_api.otter()
+
 simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             use_target_coordinates,
                                             target_radius,
@@ -76,7 +85,7 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             )
 
 print("initialized otter api and simulator")
-        
+
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
 otter.dimU = len(otter.controls)
 
@@ -234,9 +243,9 @@ class OtterEnv(gym.Env):
         yawHistory = np.array(yaw_list)
 
         if simData.size and simData.shape[0] > 1:
-            plotPosTar(simTime, simData, 1, targetData, headings=yawHistory)
-            plotVehicleStates(simTime, simData)
-            plotControls(simTime, simData, self.otter, 2)
+            plotPosTar2(simTime, simData, 1, targetData)
+            plotVehicleStates(simTime, simData, 2)
+            plotControls(simTime, simData, self.otter, 3)
             plotSpeed(simTime, simData, 5)
             plt.show()
 
@@ -366,16 +375,11 @@ if __name__ == "__main__":
 
         env = SubprocVecEnv([make_env() for _ in range(n_envs)])
 
-        checkpoint_model = os.path.join(SAVE_DIR, "ppo_otter_checkpoint.zip")
-        checkpoint_vecnorm = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize.pkl")
-        final_model = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
-        final_vecnorm = os.path.join(SAVE_DIR, "vecnormalize.pkl")
-
         # If a previous checkpoint exists, resume from it, otherwise start fresh
-        if os.path.exists(checkpoint_model) and os.path.exists(checkpoint_vecnorm):
-            print("\nFound checkpoint. Loading model and VecNormalize to continue (remember to add options for inpt)\n")
-            env = VecNormalize.load(checkpoint_vecnorm, env)
-            model = PPO.load(checkpoint_model, env=env, device="cpu")
+        if os.path.exists(CHECKPOINT_MODEL) and os.path.exists(CHECKPOINT_VECNORM):
+            print("\nFound checkpoint. Loading model and VecNormalize to continue\n")
+            env = VecNormalize.load(CHECKPOINT_VECNORM, env)
+            model = PPO.load(CHECKPOINT_MODEL, env=env, device="cpu")
         else:
             env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
             model = PPO(
@@ -402,42 +406,43 @@ if __name__ == "__main__":
                 callback=IAE_callback,
             )
         except KeyboardInterrupt:
-            # ctrl+c save and exit
             print("\nKeyboardInterrupt detected. Saving checkpoint before exiting...")
-            model.save(checkpoint_model)
+            model.save(CHECKPOINT_MODEL)
             if isinstance(env, VecNormalize):
-                env.save(checkpoint_vecnorm)
+                env.save(CHECKPOINT_VECNORM)
             print("Checkpoint saved. Exiting.")
             sys.exit(0)
 
-        # If training finishes normally, save a final model
-        model.save("ppo_otter_model.zip")
+        # Final save
+        model.save(FINAL_MODEL)
         if isinstance(env, VecNormalize):
-            env.save("vecnormalize.pkl")
+            env.save(FINAL_VECNORM)
+
 
     elif mode == 2:
-        print("Loading previously saved model")
-        eval_env = SubprocVecEnv([make_env() for _ in range(n_envs)])
-        eval_env = VecNormalize.load("vecnormalize.pkl", eval_env)
+        print("Loading previously saved model for evaluation")
 
-        eval_env.training = True  # set True if training
-        eval_env.norm_reward = False
+        # Use single env 
+        eval_env = DummyVecEnv([make_env()])
 
-        model = PPO.load("circle_updated.zip", env=eval_env, device="cpu")
+        # Load the VecNormalize as used during training
+        eval_env = VecNormalize.load(CHECKPOINT_VECNORM, eval_env)
 
-        if eval_env.training:
-            IAE_callback = CallBackLog(verbose=1)
-            model.learn(total_timesteps=training_timesteps, callback=IAE_callback)
+        # Important: set to evaluation mode
+        eval_env.training = False          # <- no updates to running stats
+        eval_env.norm_reward = False       # <- don't normalize rewards during eval
 
-            model.save("circle_updated.zip")
-            eval_env.save("circle_normalize_updated.pkl")
+        # Load the trained policy
+        model = PPO.load(CHECKPOINT_MODEL, env=eval_env, device="cpu")
+
 
     else:
         print("Chosen option is not valid.")
 
     if mode == 2:
+        IAE_callback = CallBackLog(verbose=1)
         IAE_distance, IAE_heading = IAE_callback.return_log()
-        print(f"Final IAE Distance: {IAE_distance[-1]}, Final IAE Heading: {IAE_heading[-1]}")
+        #print(f"Final IAE Distance: {IAE_distance[-1]}, Final IAE Heading: {IAE_heading[-1]}")
         plt.figure()
         plt.plot(IAE_distance, label="IAE Distance", linewidth=0.8)
         plt.xlabel("Episode")
@@ -458,7 +463,7 @@ if __name__ == "__main__":
 
     eval_env = DummyVecEnv([make_env()])
     if mode == 2:
-        eval_env = VecNormalize.load("circle_normalize_updated.pkl", eval_env)
+        eval_env = VecNormalize.load(CHECKPOINT_VECNORM, eval_env)
 
     iae_distances = []
     iae_headings = []

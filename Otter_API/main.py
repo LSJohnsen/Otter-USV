@@ -1,6 +1,7 @@
 
 import Otter_api
 import lib.PID_Controller_test_v2 as PID_Controller_test_v2
+from lib.PID_Controller_v3 import PIDController, SurgePIDAdapter, YawPIDAdapter
 import Otter_simulator
 import lib.Live_guidance as Live_guidance
 import lib.Live_plotter as Live_plotter
@@ -28,7 +29,7 @@ use_moving_target = True                                                        
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [-1, 0.0]                                                                      # Movement of the moving target each second
+moving_target_increase = [-0.5, 0.0]                                                                      # Movement of the moving target each second
 target_radius = 0.1                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
 log_simulation = True                                                                                   # Enable verbose for logging sim
@@ -128,6 +129,16 @@ yaw_kd = pdi["yaw_kd"]                                                          
 # PID
 surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)                                  # Surge PID object
 yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
+# testing v3
+pid = PIDController(
+    kp_surge=surge_kp, ki_surge=surge_ki, kd_surge=surge_kd,
+    kp_yaw=yaw_kp,   ki_yaw=yaw_ki,   kd_yaw=yaw_kd,
+    Imax_surge=10.0,
+    Imax_yaw=40.0
+)
+surge_PID = SurgePIDAdapter(pid)
+yaw_PID   = YawPIDAdapter(pid)
+
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
 
@@ -156,7 +167,7 @@ except ValueError:
 #apply NMPC if true
 use_nmpc = (ctrl_option == 1)
 live_guidance = Live_guidance.live_guidance(ip=ip, port=port, surge_PID=surge_PID, yaw_PID=yaw_PID, surge_setpoint=target_radius, otter=otter, 
-    nmpc=nmpc,                 # NMPC object (can be used or ignored internally)
+    nmpc=nmpc,                 # NMPC object (can be used or ignored)
     use_nmpc=use_nmpc,         # True for NMPC, False for PID
     control_dt=control_dt
 )

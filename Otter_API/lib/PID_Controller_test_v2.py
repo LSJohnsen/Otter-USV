@@ -10,9 +10,10 @@ class PIDController:
         self.previous_error = 0
         self.integral = 0
         self.previous_time = None
+        self.integral_surge = 0
+        self.integral_yaw = 0
 
-
-        self.integrator_limits = [-10, 20]     # Limits the integrator in both regulators
+        self.integrator_limits = [-10, 10]     # Limits the integrator in both regulators
 
         self.previous_distance = None
 
@@ -34,9 +35,9 @@ class PIDController:
         self.integral += error * sample_time if sample_time > 0 else 0
         self.integral = max(min(self.integral, self.integrator_limits[1]), self.integrator_limits[0])
 
-        if distance_to_target - surge_radius < 0:
-            self.integral = 0
-            error = 0
+        #if distance_to_target - surge_radius < 0:
+        #    self.integral = 0
+        #    error = 0
 
         derivative = (error - self.previous_error) / sample_time if sample_time > 0 else 0
         self.previous_error = error

@@ -1,0 +1,8 @@
+Control_method: DRL
+IAE_distance: 926.943501636814
+IAE_heading: 161.35680665441643
+ISU: 2905616.1046907497
+ISU_normalized: 10894.698555271223
+IAU: 73688.54670882616
+avg_distance_to_target: 0.38301699413394685
+reached_target_time: 0.0

@@ -80,7 +80,7 @@ class otter_simulator():
 
         # Vehicle parameters
         m = 55.0                                            # mass (kg)
-        self.mp = 25.0                                       # Payload (kg)
+        self.mp = 25.0                                      # Payload (kg)
         self.m_total = m + self.mp
         self.rp = np.array([0.05, 0, -0.35], float)         # location of payload (m)
         rg = np.array([0.2, 0, -0.2], float)                # CG for hull only (m)
@@ -294,7 +294,7 @@ class otter_simulator():
                             self.moving_target[1] = self.moving_target[1] + self.moving_target_increase[1]                      #
 
                 else:
-                    omega = 1.5 / 50
+                    omega = 1.5 / self.target_radius
                     asd = asd + sampleTime
                     theta = omega * asd
                     self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
@@ -562,11 +562,11 @@ class otter_simulator():
                                 self.moving_target[1] = self.moving_target[1] + self.moving_target_increase[1]                      #
 
                     else:
-                        omega = 1.5 / 50
+                        omega = 1.5 / self.target_radius
                         asd = asd + sampleTime
                         theta = omega * asd
-                        self.moving_target[0] = -20 + 40 * np.cos(theta)
-                        self.moving_target[1] = -20 + 40 * np.sin(theta)
+                        self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
+                        self.moving_target[1] = self.target_circle_start_y -20 + self.target_radius * np.sin(theta)     
 
             
                 # NMPC update at slower rate
@@ -702,7 +702,7 @@ class otter_simulator():
                 print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
 
                 param_dict = {
-                    "Control_method": "PID",
+                    "Control_method": "NMPC",
                     "IAE_distance": self.IAE_dist,
                     "IAE_heading": self.IAE_head,
                     "ISU": self.ISU,

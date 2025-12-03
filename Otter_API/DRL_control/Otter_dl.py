@@ -25,6 +25,9 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import VecNormalize
 from torch import nn
+from lib.Performance_metrics import PerformanceMetrics
+from logs.IO import log_to_csv, log_params as io_log_params
+
 
 # Use cpu for PPO
 device = torch.device("cpu")
@@ -36,9 +39,8 @@ use_target_coordinates = False                                                  
 use_moving_target = True                                                                                # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
-moving_target_start = [0, 0]                                                                            # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [1.5, 0.0]                                                                     # Movement of the moving target each second
-max_target_delta = 60                                                                                   # How many meters target should move each simulation before truncation
+moving_target_start = [0, -10]                                                                         # Start point of the moving target if use_moving_target is set to True
+moving_target_increase = [-0.5, 0.0]                                                                     # Movement of the moving target each second                                                                                  # How many meters target should move each simulation before truncation
 target_radius = 0.2                                                                                     # Radius from center of target that counts as target reached
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
@@ -50,9 +52,9 @@ start_north = -20                                                               
 start_east = -20                                                                                        # Target east position from reference point
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
-radius = 20                                                                                             # If tracking a circular motion
-if circular_target:                                                                                     # Full circle length
-    max_target_delta = 2 * radius * np.pi
+radius = 40                                                                                             # If tracking a circular motion
+max_target_delta = 250                                                                                  # Max distance target moves before truncation
+max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
@@ -82,7 +84,7 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             verbose,
                                             store_force_file,
                                             circular_target,
-                                            )
+                                            radius)
 
 print("initialized otter api and simulator")
 
@@ -112,12 +114,28 @@ class OtterEnv(gym.Env):
         self.simTime = []
         self.distanceHistory = []
         self.headingErrorHistory = []
-        self.IAE_distance_History = []
-        self.IAE_heading_History = []
         self.last_sim_data = None
         self.last_target_data = None
         self.last_sim_time = None
         self.last_yaw_history = None
+        
+        # training metrics
+        self.IAE_distance_History = []
+        self.IAE_heading_History = []
+
+        # final evaluation metrics
+        self.metrics = PerformanceMetrics()
+        self.last_IAE_distance = 0.0
+        self.last_IAE_heading = 0.0
+        self.last_ISU = 0.0
+        self.last_ISU_normalized = 0.0
+        self.last_IAU = 0.0
+        self.cum_distance = 0.0              # distance  avg distance
+        self.reached_target_time = 0.0       # time of first intercept
+        self.reached_flag = False            # has target been intercepted
+
+        self.last_avg_distance = 0.0         # stored at end of episode (for logging)
+        self.last_reached_target_time = 0.0  # stored at end of episode (for logging)
 
         self.initial_target = list(self.simulator.moving_target)
         self.has_plotted = False
@@ -155,6 +173,14 @@ class OtterEnv(gym.Env):
             tau_X,
             tau_N
         )
+        self.metrics.update(
+            distance_to_target=distance_to_target,
+            heading_error=heading_error,
+            u1=u_actual[0],
+            u2=u_actual[1],
+            dt=self.sampletime,
+        )
+   
 
         commands = np.array([tau_X, tau_N])
         actuals = u_actual
@@ -172,12 +198,18 @@ class OtterEnv(gym.Env):
         self.distanceHistory.append(distance_to_target)
         self.headingErrorHistory.append(heading_error)
 
-        # Normalize target distances
+        self.cum_distance += distance_to_target * self.sampletime
+        if (not self.reached_flag) and (distance_to_target < self.simulator.surge_setpoint):
+            self.reached_flag = True
+            self.reached_target_time = self.current_step * self.sampletime
+
+        # Normalize target distances (if distance > ... 1) 
         if circular_target:
             normalized_distance = np.clip(distance_to_target / radius, -1.0, 1.0)
         else:
             normalized_distance = np.tanh(distance_to_target / max_target_delta)
 
+        
         obs = np.array([normalized_distance,
                         heading_error,
                         np.clip(nu[0] / self.Umax, -1.0, 1.0),  # surge velocity normalized
@@ -185,13 +217,8 @@ class OtterEnv(gym.Env):
                         ], dtype=np.float32)
 
         # Determine target deltas for episode termination
-        if circular_target:
-            self.target_arc_length += v_circle * self.sampletime
-            target_delta = self.target_arc_length
-        else:
-            target_delta = np.linalg.norm(np.array(self.simulator.moving_target) - np.array(self.initial_target))
-
-        truncated = target_delta >= max_target_delta or self.current_step > self.sim_duration
+        episode_time = self.current_step * self.sampletime
+        truncated = episode_time >= max_episode_time
         truncated_count += 1
         if truncated_count % 100 == 0:
             print(f"[{self.current_step}] Target at {self.simulator.moving_target}, "
@@ -203,6 +230,30 @@ class OtterEnv(gym.Env):
             self.last_target_data = self.targetData.copy()
             self.last_sim_time = self.simTime.copy()
             self.last_yaw_history = self.yawHistory.copy()
+
+            if self.current_step > 0:
+                self.last_avg_distance       = self.cum_distance / self.current_step
+            else:
+                self.last_avg_distance       = 0.0
+                self.last_reached_target_time = self.reached_target_time
+            param_dict = {
+                "Control_method": "DRL",
+                "IAE_distance": self.last_IAE_distance,
+                "IAE_heading":  self.last_IAE_heading,
+                "ISU":          self.last_ISU,
+                "ISU_normalized": self.last_ISU_normalized,
+                "IAU":          self.last_IAU,
+                "avg_distance_to_target": self.last_avg_distance,
+                "reached_target_time":    self.last_reached_target_time,
+            }
+            io_log_params(param_dict, filename="parameters_DRL.txt", verbose=True)
+
+            log_to_csv(
+                simTime=self.last_sim_time,
+                simData=self.last_sim_data,
+                targetData=self.last_target_data,
+                filename="sim_log_DRL.csv",
+                verbose=True)
 
         if not hasattr(self, 'last_distance'):
             self.last_distance = distance_to_target
@@ -251,28 +302,63 @@ class OtterEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
 
-        if len(self.distanceHistory) > 0:
-            IAE_distance = np.sum(np.abs(self.distanceHistory)) * self.sampletime
-            IAE_heading = np.sum(np.abs(self.headingErrorHistory)) * self.sampletime
-
-            # Store it in new attributes
-            self.last_IAE_distance = IAE_distance
-            self.last_IAE_heading = IAE_heading
+        #  store last metrics 
+        if self.current_step > 0:
+            self.last_IAE_distance, self.last_IAE_heading = self.metrics.get_IAE()
+            self.last_ISU = self.metrics.get_ISU()
+            self.last_ISU_normalized = self.metrics.get_ISU_normalized()
+            self.last_IAU = self.metrics.get_IAU()
         else:
             self.last_IAE_distance = 0.0
             self.last_IAE_heading = 0.0
+            self.last_ISU = 0.0
+            self.last_ISU_normalized = 0.0
+            self.last_IAU = 0.0
 
         super().reset(seed=seed)
-
         if seed is not None:
             np.random.seed(seed)
 
-        self.simulator.moving_target = list(moving_target_start)
-        self.initial_target = list(self.simulator.moving_target)
-
-        self.start_target_x = self.simulator.moving_target[0]
+        #  reset episode 
         self.current_step = 0
         self.target_arc_length = 0.0
+        self.metrics.reset()
+        self.cum_distance = 0.0
+        self.reached_target_time = 0.0
+        self.reached_flag = False
+
+        # reset moving target & simulator time
+        # reset time accumulator for circular target
+        self.simulator.asd = 0.0
+
+        if self.simulator.circular_target:
+            # start exactly at the configured start point
+            self.simulator.moving_target = self.simulator.moving_target_start.copy()
+        else:
+            self.simulator.moving_target = self.simulator.moving_target_start.copy()
+
+        self.initial_target = list(self.simulator.moving_target)
+
+        #  choose initial USV state relative to target 
+        target_pos = np.array(self.simulator.moving_target, dtype=float)
+        target_x, target_y = target_pos
+
+        if self.simulator.circular_target:
+            yaw = 0.0
+        else:
+            yaw = np.arctan2(self.simulator.moving_target_increase[1],
+                            self.simulator.moving_target_increase[0])
+
+        x = target_x
+        y = target_y + 10.0  
+
+        eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
+        self.simulator.initial_state(eta_initial)
+
+        #  reset simulator
+        distance_to_target, heading_error, nu = self.simulator.reset_simulation()
+
+        # clear histories 
         self.simData = []
         self.targetData = []
         self.simTime = []
@@ -280,36 +366,36 @@ class OtterEnv(gym.Env):
         self.distanceHistory = []
         self.headingErrorHistory = []
 
-        # Target position
-        target_pos = np.array(self.simulator.moving_target)
-        target_x, target_y = target_pos
+        eta0 = self.simulator.eta.copy()
+        nu0  = self.simulator.nu.copy()
+        u0   = self.simulator.u_actual.copy()
+        commands0 = np.array([0.0, 0.0])   # no control before first step
 
-        # limit initial north distance and yaw angle to target after reset
-        yaw = np.arctan2(self.simulator.moving_target_increase[1],
-                         self.simulator.moving_target_increase[0])  # gets the correct initial angle
+        full_state0 = np.hstack([eta0, nu0, commands0, u0])
+        self.simData.append(full_state0)
+        self.targetData.append(np.array(self.simulator.moving_target, dtype=float))
+        self.simTime.append(0.0)
+        self.yawHistory.append(eta0[5])
+        self.distanceHistory.append(distance_to_target)
+        self.headingErrorHistory.append(heading_error)
 
-        x = target_x
-        y = target_y + 10  # 10 meter east offset
-
-        eta_initial = [x, y, 0, 0, 0, yaw]
-        self.simulator.initial_state(eta_initial)  # sets initial state on the target location and angle
-
-        distance_to_target, heading_error, nu = self.simulator.reset_simulation()
-
-        if circular_target:
-            normalized_distance = np.clip(distance_to_target / radius, -1.0, 1.0)
+        # initial observation 
+        if self.simulator.circular_target:
+            normalized_distance = np.clip(distance_to_target / self.simulator.circle_radius,
+                                        -1.0, 1.0)
         else:
-            normalized_distance = np.tanh(distance_to_target / max_target_delta)
+            normalized_distance = np.tanh(distance_to_target / max_target_delta)  
 
         obs = np.array([
             normalized_distance,
             heading_error,
             np.clip(nu[0] / self.Umax, -1.0, 1.0),
-            np.clip(nu[1] / self.Umax, -1.0, 1.0)
+            np.clip(nu[1] / self.Umax, -1.0, 1.0),
         ], dtype=np.float32)
-        info = {}
 
+        info = {}
         return obs, info
+
 
     def seed(self, seed=None):
         pass
@@ -349,7 +435,7 @@ class CallBackLog(BaseCallback):
         for i, done in enumerate(self.locals["dones"]):
             if done:
                 IAE_distance = self.training_env.get_attr("last_IAE_distance", i)[0]
-                IAE_heading = self.training_env.get_attr("last_IAE_heading", i)[0]
+                IAE_heading = self.training_env.get_attr("last_IAE_heading", i)[0]  
 
                 self.IAE_distance_history.append(IAE_distance)
                 self.IAE_heading_history.append(IAE_heading)
@@ -428,7 +514,7 @@ if __name__ == "__main__":
         # Load the VecNormalize as used during training
         eval_env = VecNormalize.load(CHECKPOINT_VECNORM, eval_env)
 
-        # Important: set to evaluation mode
+        # set to evaluation mode
         eval_env.training = False          # <- no updates to running stats
         eval_env.norm_reward = False       # <- don't normalize rewards during eval
 
@@ -469,6 +555,7 @@ if __name__ == "__main__":
     iae_headings = []
     episode_actions = []
     episode_count = 0
+    logged_once = False
 
     obs = eval_env.reset()
     for i in range(10000):
@@ -476,6 +563,7 @@ if __name__ == "__main__":
         env_single = eval_env.envs[0]
         last_target = env_single.simulator.moving_target.copy()
         action, _states = model.predict(obs)
+        
         episode_actions.append(action)
         obs, rewards, dones, infos = eval_env.step(action)
 
@@ -503,13 +591,22 @@ if __name__ == "__main__":
                 plt.legend()
                 plt.grid(True)
                 plt.show()
+            
+                if len(env_single.simData) > 0:
+                    simData_arr    = np.array(env_single.simData)
+                    targetData_arr = np.array(env_single.targetData)
+                    simTime_arr    = np.array(env_single.simTime)
+                
 
-            if episode_count < 5:
-                env_single.render()
+                if episode_count == 0:
+                    actions_arr = np.vstack(episode_actions)
+                    ...
+                if episode_count < 1:
+                    env_single.render()
 
-            episode_count += 1
-            episode_actions = []
-            obs = eval_env.reset()
+                episode_count += 1
+                episode_actions = []
+                obs = eval_env.reset()
 
     print(f"Average eval IAE distance: {np.mean(iae_distances):.2f}")
     print(f"Average eval IAE heading:  {np.mean(iae_headings):.2f}")

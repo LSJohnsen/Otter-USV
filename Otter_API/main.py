@@ -31,14 +31,14 @@ end_when_last_target_reached = True                                             
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
 moving_target_increase = [-0.5, 0.0]                                                                      # Movement of the moving target each second
 target_radius = 0.1                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
-verbose = True                                                                                          # Enable verbose printing
+verbose = True                                                                                         # Enable verbose printing
 log_simulation = True                                                                                   # Enable verbose for logging sim
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                 # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
-N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally)
+N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally for usv)
 control_dt  = 0.1                                                                                       # MPC update period (s)
 
 
@@ -67,7 +67,7 @@ test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15
 #############################################################################################################################################################################################################################################################
 #                                                                                                                                                                                                                                                           #
 #                                                                                                                                                                                                                                                           #
-#                                                                                                               MAIN CODE BELOW!                                                                                                                            #
+#                                                                                                               MAIN CODE                                                                                                                            #
 #                                                                                                                                                                                                                                                           #
 #                                                                                                                                                                                                                                                           #
 #############################################################################################################################################################################################################################################################
@@ -127,9 +127,9 @@ yaw_kd = pdi["yaw_kd"]                                                          
 
 
 # PID
-surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)                                  # Surge PID object
-yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
-# testing v3
+#surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)                                  # Surge PID object
+#yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
+# pid testing v3
 pid = PIDController(
     kp_surge=surge_kp, ki_surge=surge_ki, kd_surge=surge_kd,
     kp_yaw=yaw_kp,   ki_yaw=yaw_ki,   kd_yaw=yaw_kd,

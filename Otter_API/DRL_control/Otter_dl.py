@@ -297,7 +297,9 @@ class OtterEnv(gym.Env):
             plotPosTar2(simTime, simData, 1, targetData)
             plotVehicleStates(simTime, simData, 2)
             plotControls(simTime, simData, self.otter, 3)
-            plotSpeed(simTime, simData, 5)
+            #plotSpeed(simTime, simData, 5)
+            plotSurge(simTime, simData, 6)
+            plotYaw(simTime, simData, 7) 
             plt.show()
 
     def reset(self, seed=None, options=None):

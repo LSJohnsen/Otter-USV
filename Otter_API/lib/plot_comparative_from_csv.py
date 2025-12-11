@@ -207,7 +207,7 @@ def plotPosTar_multi_with_inset(datasets,
     usv_proxy = Line2D(
         [], [], linestyle="None",
         marker=(3, 0, 0),
-        markersize=5,
+        markersize=6,
         markerfacecolor="0.6", markeredgecolor="0.3",
         label="USV position & heading",
     )
@@ -321,10 +321,16 @@ def plotPosTar_multi_with_inset(datasets,
 
     if savePlot:
         os.makedirs(PLOT_DIR, exist_ok=True)
-        outfile = os.path.join(PLOT_DIR, plotName + ".png")
-        print(f"Saving plot to: {outfile}")
-        plt.savefig(outfile, bbox_inches="tight")
-    plt.show()
+
+        png_out = os.path.join(PLOT_DIR, plotName + ".png")
+        eps_out = os.path.join(PLOT_DIR, plotName + ".eps")
+
+        print(f"Saving plot to: {png_out}")
+        print(f"Saving plot to: {eps_out}")
+
+        plt.savefig(png_out, bbox_inches="tight", dpi=300)
+        plt.savefig(eps_out, format="eps", bbox_inches="tight")
+        plt.show()
 
 
 

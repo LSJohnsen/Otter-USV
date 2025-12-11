@@ -170,6 +170,7 @@ class otter_simulator():
         w4 = math.sqrt(G44 / self.M[3, 3]) #roll
         w5 = math.sqrt(G55 / self.M[4, 4]) #pitch
 
+
         # Linear damping terms (hydrodynamic derivatives)
         Xu = -24.4 *self.g / Umax  # specified using the maximum speed
         Yv = 0
@@ -183,7 +184,7 @@ class otter_simulator():
         self.mass = m + self.mp
 
     def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID):
-
+        
         counter = 0                         #
         reached_target_time = 0             #
         self.reached_yaw_target_time = 0    #  For tuning, prints time in console

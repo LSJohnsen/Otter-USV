@@ -282,7 +282,8 @@ if __name__ == "__main__":
 
 
     # Establishes a socket connection to the Otter with IP and the PORT'
-    otter.establish_connection("10.0.5.1", 32001) 
+    #otter.establish_connection("10.0.5.1", 32001) 
+    otter.establish_connection("192.168.53.2", 32001) 
 
 
     # Write test commands under here:

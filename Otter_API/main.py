@@ -9,6 +9,7 @@ from lib.plotTimeSeries import *
 import threading
 import atexit
 import time
+import requests
 
 from casadi_control.MPC_control import NMPCControl
 from casadi_control.lib.usv_params import usv_params_6dof
@@ -21,6 +22,63 @@ from logs.IO import log_to_csv
 #                                                                      OPTIONS                                                                           #
 ##########################################################################################################################################################
 
+"""
+ugps code for testing
+"""
+
+BASE_URL = "http://192.168.2.94/"  
+URL_GLOBAL   = BASE_URL + "/api/v1/position/global"                                                     
+URL_ACOUSTIC = BASE_URL + "/api/v1/position/acoustic/filtered"
+
+def ugps_get(url):
+    try:
+        r = requests.get(url, timeout=0.3)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+print("Reading UGPS data...\n")
+
+def ugps_reader(stop_event, otter=None):
+    print("Starting UGPS reader thread...\n")
+    while not stop_event.is_set():
+        g = ugps_get(URL_GLOBAL)
+        a = ugps_get(URL_ACOUSTIC)
+
+        if g and a:
+            # Global position
+            lat   = float(g.get("lat", 0.0))
+            lon   = float(g.get("lon", 0.0))
+            depth = -float(a.get("z", 0.0))  # z is negative down, make depth positive
+
+            # Local coordinates (relative to master/antenna)
+            x = float(a.get("x", 0.0))
+            y = float(a.get("y", 0.0))
+            z = float(a.get("z", 0.0))
+
+            # Optional: store into otter.sorted_values 
+            if otter is not None:
+                otter.sorted_values["ugps_lat"]   = lat
+                otter.sorted_values["ugps_lon"]   = lon
+                otter.sorted_values["ugps_depth"] = depth
+                otter.sorted_values["ugps_x"]     = x
+                otter.sorted_values["ugps_y"]     = y
+                otter.sorted_values["ugps_z"]     = z
+
+            
+            i = 0
+            if i % 10 == 0:
+                print(f"Global:  Lat:{lat:.6f}, Lon:{lon:.6f}, Depth:{depth:.2f} m")
+                print(f"Local XYZ: X:{x:.2f} m, Y:{y:.2f} m, Z:{z:.2f} m")
+                print("-" * 40)
+                
+            
+        else:
+            print("Waiting for valid UGPS data...")
+
+        time.sleep(0.5)
 
 N = 13333                                                                                               # Number of simulation samples
 sampleTime = 0.02                                                                                       # Simulation time per sample. Usually at 0.02, other values could cause instabillity in the simulation
@@ -43,9 +101,11 @@ control_dt  = 0.1                                                               
 
 
 # When connecting to live otter and using target tracking or simulating circular target:
-ip = "10.0.5.1"
+# #192.168.53.2 (32001) radio # 10.0.5.1 wifi 
+ip = "192.168.53.2"
+#ip = "10.0.5.1"
 port = 2009
-start_north = -20                                                                                      # Target north position from referance point
+start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
@@ -53,10 +113,11 @@ radius = 40                                                                     
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
-enable_live_plot = True                                                                                  # Enables live plotting
+enable_live_plot = True                                                                                 # Enables live plotting
+ugps = True                                                                                             # Use acoustic modem 
 
 
-parameter_list = 3                                    # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4
+parameter_list = 3 # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4
 
 
 trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0, "yaw_kp" : 37, "yaw_ki" : 4, "yaw_kd" : 8}
@@ -86,7 +147,6 @@ simulator = Otter_simulator.otter_simulator(target_list,
                                             verbose, 
                                             store_force_file, 
                                             circular_target)           # Creates Simulator object
-
 
 
 
@@ -174,7 +234,6 @@ live_guidance = Live_guidance.live_guidance(ip=ip, port=port, surge_PID=surge_PI
 
 
 
-
 def _target_tracking():
     live_guidance.target_tracking(start_north, start_east, v_north, v_east)
 
@@ -251,7 +310,16 @@ def main(option):
             plt.close()
 
     elif option == 2:
-
+        
+        if ugps:
+            ugps_stop_event = threading.Event()
+            ugps_thread = threading.Thread(
+            target=ugps_reader,
+            args=(ugps_stop_event, otter),   
+            daemon=True
+            )
+            ugps_thread.start()
+        
         _target_thread = threading.Thread(target=_target_tracking, args=())
         _target_thread.daemon = True
         _circle_thread = threading.Thread(target=_circular_tracking, args=())
@@ -297,16 +365,5 @@ def main(option):
         else:
             print("Error")
 
-
 if __name__ == "__main__":
     main(option)
-
-
-
-
-
-
-
-
-
-

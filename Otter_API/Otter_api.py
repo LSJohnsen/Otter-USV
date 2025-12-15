@@ -94,10 +94,9 @@ class otter():
         self.sorted_values["observer_height"] = self.values["observer_coordinates"][2]
 
         self.geo2ned_position()
-
-        self.sorted_values["north_from_observer"] = self.values["geo2ned_from_observer"][0]
-        self.sorted_values["east_from_observer"] = self.values["geo2ned_from_observer"][1]
-        self.sorted_values["down_from_observer"] = self.values["geo2ned_from_observer"][2]
+        self.sorted_values["north_from_observer"] = self.geo2ned_from_observer[0]
+        self.sorted_values["east_from_observer"]  = self.geo2ned_from_observer[1]
+        self.sorted_values["down_from_observer"]  = self.geo2ned_from_observer[2]
 
         self.sorted_values["previous_time"] = self.sorted_values["current_time"]
         self.sorted_values["current_time"] = time.time()
@@ -127,7 +126,9 @@ class otter():
     def geo2ned_position(self):
         n, e, d = pm.geodetic2ned(self.sorted_values["lat"], self.sorted_values["lon"], self.sorted_values["height"], self.sorted_values["observer_lat"], self.sorted_values["observer_lon"], self.sorted_values["observer_height"])
         self.geo2ned_from_observer = [n, e, d]
+        self.values["geo2ned_from_observer"] = self.geo2ned_from_observer
 
+    
     # Tries to set the Otter in manual control mode, controlling the x, y and torques. force_y is not in use.
     def set_manual_control_mode(self, force_x, force_y, torque_z):
         if self.check_connection():

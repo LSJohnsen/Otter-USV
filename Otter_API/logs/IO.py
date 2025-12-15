@@ -34,7 +34,7 @@ def log_params(params: dict, filename="run_parameters.txt", verbose=False):
 
     full_path = os.path.join(BASE_LOG_DIR, filename)
 
-    # Ensure directory exists
+
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
     with open(full_path, "w") as f:

@@ -22,63 +22,6 @@ from logs.IO import log_to_csv
 #                                                                      OPTIONS                                                                           #
 ##########################################################################################################################################################
 
-"""
-ugps code for testing
-"""
-
-BASE_URL = "http://192.168.2.94/"  
-URL_GLOBAL   = BASE_URL + "/api/v1/position/global"                                                     
-URL_ACOUSTIC = BASE_URL + "/api/v1/position/acoustic/filtered"
-
-def ugps_get(url):
-    try:
-        r = requests.get(url, timeout=0.3)
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        pass
-    return None
-
-print("Reading UGPS data...\n")
-
-def ugps_reader(stop_event, otter=None):
-    print("Starting UGPS reader thread...\n")
-    while not stop_event.is_set():
-        g = ugps_get(URL_GLOBAL)
-        a = ugps_get(URL_ACOUSTIC)
-
-        if g and a:
-            # Global position
-            lat   = float(g.get("lat", 0.0))
-            lon   = float(g.get("lon", 0.0))
-            depth = -float(a.get("z", 0.0))  # z is negative down, make depth positive
-
-            # Local coordinates (relative to master/antenna)
-            x = float(a.get("x", 0.0))
-            y = float(a.get("y", 0.0))
-            z = float(a.get("z", 0.0))
-
-            # Optional: store into otter.sorted_values 
-            if otter is not None:
-                otter.sorted_values["ugps_lat"]   = lat
-                otter.sorted_values["ugps_lon"]   = lon
-                otter.sorted_values["ugps_depth"] = depth
-                otter.sorted_values["ugps_x"]     = x
-                otter.sorted_values["ugps_y"]     = y
-                otter.sorted_values["ugps_z"]     = z
-
-            
-            i = 0
-            if i % 10 == 0:
-                print(f"Global:  Lat:{lat:.6f}, Lon:{lon:.6f}, Depth:{depth:.2f} m")
-                print(f"Local XYZ: X:{x:.2f} m, Y:{y:.2f} m, Z:{z:.2f} m")
-                print("-" * 40)
-                
-            
-        else:
-            print("Waiting for valid UGPS data...")
-
-        time.sleep(0.5)
 
 N = 13333                                                                                               # Number of simulation samples
 sampleTime = 0.02                                                                                       # Simulation time per sample. Usually at 0.02, other values could cause instabillity in the simulation
@@ -87,12 +30,12 @@ use_moving_target = True                                                        
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [-0.5, 0.0]                                                                      # Movement of the moving target each second
+moving_target_increase = [-0.5, 0.0]                                                                    # Movement of the moving target each second
 target_radius = 0.1                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
-verbose = True                                                                                         # Enable verbose printing
+verbose = True                                                                                          # Enable verbose printing
 log_simulation = True                                                                                   # Enable verbose for logging sim
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
-circular_target = True                                                                                 # Make the moving target a circle in the simulation
+circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
@@ -100,11 +43,17 @@ N_horizon   = 15                                                                
 control_dt  = 0.1                                                                                       # MPC update period (s)
 
 
-# When connecting to live otter and using target tracking or simulating circular target:
-# #192.168.53.2 (32001) radio # 10.0.5.1 wifi 
+# When connecting to live otter:
+# Otter USV IPs (radio: 196.168.53.2 : 2009)
 ip = "192.168.53.2"
 #ip = "10.0.5.1"
 port = 2009
+
+# UGPS ip
+BASE_URL = "http://192.168.2.94/"  
+URL_GLOBAL   = BASE_URL + "/api/v1/position/global"                                                     
+URL_ACOUSTIC = BASE_URL + "/api/v1/position/acoustic/filtered"
+
 start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
@@ -114,7 +63,8 @@ v_circle = 1.5                                                                  
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
 enable_live_plot = True                                                                                 # Enables live plotting
-ugps = True                                                                                             # Use acoustic modem 
+ugps = False                                                                                            # Use acoustic modem 
+ugps_stop_event = None
 
 
 parameter_list = 3 # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4
@@ -146,18 +96,14 @@ simulator = Otter_simulator.otter_simulator(target_list,
                                             end_when_last_target_reached, 
                                             verbose, 
                                             store_force_file, 
-                                            circular_target)           # Creates Simulator object
+                                            circular_target)                                            # Creates Simulator object
 
 
 
 
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]          # Some values needed for the plotting
 otter.dimU = len(otter.controls)        
-
-otter.sorted_values.setdefault("target_north_from_observer", start_north)                               # Some initial values to avoid nmpc crash
-otter.sorted_values.setdefault("target_east_from_observer",  start_east)
-otter.sorted_values.setdefault("tau_X", 0.0)
-otter.sorted_values.setdefault("tau_N", 0.0)                                                                #
+                                              
 
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
@@ -190,6 +136,7 @@ yaw_kd = pdi["yaw_kd"]                                                          
 #surge_PID = PID_Controller_test_v2.PIDController(surge_kp, surge_ki, surge_kd)                                  # Surge PID object
 #yaw_PID = PID_Controller_test_v2.PIDController(yaw_kp, yaw_ki, yaw_kd)                                          # Yaw PID object
 # pid testing v3
+
 pid = PIDController(
     kp_surge=surge_kp, ki_surge=surge_ki, kd_surge=surge_kd,
     kp_yaw=yaw_kp,   ki_yaw=yaw_ki,   kd_yaw=yaw_kd,
@@ -227,7 +174,7 @@ except ValueError:
 #apply NMPC if true
 use_nmpc = (ctrl_option == 1)
 live_guidance = Live_guidance.live_guidance(ip=ip, port=port, surge_PID=surge_PID, yaw_PID=yaw_PID, surge_setpoint=target_radius, otter=otter, 
-    nmpc=nmpc,                 # NMPC object (can be used or ignored)
+    nmpc=nmpc,                 # NMPC object (can be ignored)
     use_nmpc=use_nmpc,         # True for NMPC, False for PID
     control_dt=control_dt
 )
@@ -244,6 +191,8 @@ def _square_tracking():
     live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
 
 def exit_handler():
+    if ugps_stop_event is not None:
+        ugps_stop_event.set()
     live_guidance.save_log()
 
 
@@ -251,6 +200,7 @@ def exit_handler():
 # Main:
 
 def main(option):
+    #sim
     if option == 1:
         
         if ctrl_option == 2:
@@ -308,27 +258,23 @@ def main(option):
 
             plt.show()
             plt.close()
-
+    #live
     elif option == 2:
-        
-        if ugps:
-            ugps_stop_event = threading.Event()
-            ugps_thread = threading.Thread(
-            target=ugps_reader,
-            args=(ugps_stop_event, otter),   
-            daemon=True
-            )
-            ugps_thread.start()
-        
+
         _target_thread = threading.Thread(target=_target_tracking, args=())
         _target_thread.daemon = True
         _circle_thread = threading.Thread(target=_circular_tracking, args=())
         _circle_thread.daemon = True
         _square_thread = threading.Thread(target=_square_tracking, args=())
         _square_thread.daemon = True
+               
+        # Some initial values to avoid nmpc crash
+        otter.sorted_values.setdefault("target_north_from_observer", start_north)                               
+        otter.sorted_values.setdefault("target_east_from_observer",  start_east)
+        otter.sorted_values.setdefault("tau_X", 0.0)
+        otter.sorted_values.setdefault("tau_N", 0.0)               
 
-
-        option = float(input("Enter 1 for target tracking with moving target, 2 for circular motion or 3 for square tracking: "))
+        option = float(input("Enter 1 for target tracking with moving target, 2 for circular motion, 3 for square tracking or 4 for UGPS tracking: "))
 
         if option == 1:
             if enable_live_plot:    
@@ -362,8 +308,36 @@ def main(option):
             else:
                 live_guidance.square_tracking(start_north, start_east, radius, v_circle)
                 atexit.register(exit_handler)
-        else:
-            print("Error")
+
+        elif option == 4:
+
+            ugps_stop_event = threading.Event()
+
+            ugps_thread = threading.Thread(
+                target=live_guidance.ugps_reader,  
+                args=(ugps_stop_event, URL_GLOBAL, URL_ACOUSTIC, otter),
+                daemon=True
+            )
+
+            tracking_thread = threading.Thread(
+                target=live_guidance.ugps_target_tracking,
+                args=(ugps_stop_event,),
+                daemon=True
+            )
+
+            ugps_thread.start()
+            atexit.register(exit_handler)
+
+            if enable_live_plot:
+                tracking_thread.start()
+                print("Waiting for data")
+                time.sleep(6)
+                p1 = Live_plotter.live_plotter(otter)
+                
+            else:
+                live_guidance.ugps_target_tracking(ugps_stop_event)
+
+
 
 if __name__ == "__main__":
     main(option)

@@ -20,7 +20,10 @@ from logs.IO import log_to_csv
 
 ##########################################################################################################################################################
 #                                                                      OPTIONS                                                                           #
+#    For testing of the Otter USV. First options determine simulation parameters, secondary options either for UGPS or live tracking with sim target     #                                                                                                                                                                                                                 #
+#          Ensure the correct IP and port are used for both UGPS, and Otter USV Radio/wifi depending method. Check in otter VCS                          #                                                                                                                                                        
 ##########################################################################################################################################################
+
 
 
 N = 13333                                                                                               # Number of simulation samples
@@ -39,7 +42,7 @@ circular_target = True                                                          
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
-N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally for usv)
+N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally for fast updates)
 control_dt  = 0.1                                                                                       # MPC update period (s)
 
 
@@ -63,8 +66,7 @@ v_circle = 1.5                                                                  
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
 enable_live_plot = True                                                                                 # Enables live plotting
-ugps = False                                                                                            # Use acoustic modem 
-ugps_stop_event = None
+ugps_stop_event = None                                                                                  # For threading stop eventt
 
 
 parameter_list = 3 # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4

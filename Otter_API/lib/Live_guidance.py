@@ -119,7 +119,7 @@ class live_guidance():
                 y = float(a.get("y", 0.0))
                 z = float(a.get("z", 0.0))
 
-                # Cache latest UGPS 
+                # latest UGPS 
                 with self._ugps_lock:
                     self._ugps_latest = {
                         "lat": lat, "lon": lon, "depth": depth,
@@ -142,7 +142,7 @@ class live_guidance():
                     print("-" * 40)
                 i += 1
             else:
-                # print("Waiting for valid UGPS data...")
+                print("Waiting for valid UGPS data...")
                 pass
 
             time.sleep(0.5)
@@ -204,10 +204,10 @@ class live_guidance():
     # UGPS target tracking
     def ugps_target_tracking(self, stop_event, ugps_timeout_s=2, logs_dir="../logs"):
         """
-        Tracks a live target using latest UGPS local XYZ instead of simulated target.
-        Requires ugps_reader to be running in a separate thread and updating self._ugps_latest.
-        stop_event: threading.Event to stop the loop
-        ugps_timeout_s: if no fresh UGPS data arrives hold or drift
+        Tracks a live target using latest UGPS geo2ned instead of simulated target.
+        (ENSURE INERTIAL FRAME COORDINATES IN OTTER_API.PY AND WATERLINKED ARE THE SAME FOR CORRECT CALCULATIONS)
+        Requires ugps_reader to be running in a separate thread and updating self._ugps_latest (could cause issues if irregular updates? test)
+        ugps_timeout_s if no fresh UGPS data arrives hold or drift
         """
 
         self.otter.establish_connection(self.ip, self.port)
@@ -234,7 +234,7 @@ class live_guidance():
             while not stop_event.is_set():
                 start_time = time.time()
 
-                # 1) Read latest UGPS snapshot
+                # latest UGPS snapshot (from separate thread ugps reader)
                 with self._ugps_lock:
                     ugps = None if self._ugps_latest is None else dict(self._ugps_latest)
 
@@ -247,15 +247,18 @@ class live_guidance():
                     time.sleep(0.5)
                     continue
 
-                # Define target position from UGPS local coordinates
-                # Adjust mapping if your UGPS frame differs
+                # target position from UGPS local coordinates
+                '''
                 target_north = ugps["x"]
                 target_east  = ugps["y"]
+                '''
+                target_north, target_east, target_down = self.ugps_geo_to_ned(ugps["lat"], ugps["lon"])
+
 
                 self.otter.sorted_values["target_north_from_observer"] = target_north
                 self.otter.sorted_values["target_east_from_observer"]  = target_east
 
-                # errors
+                # error
                 self.north_error = target_north
                 self.east_error  = target_east
 
@@ -265,7 +268,7 @@ class live_guidance():
                 self.current_angle = float(np.arctan2(self.east_error, self.north_error))
                 self.yaw_setpoint = self.current_angle
                 '''
-                #
+                # error setpoint from reference model
                 raw_dist = float(np.hypot(self.north_error, self.east_error))
 
                 self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = \
@@ -282,7 +285,6 @@ class live_guidance():
 
                 self.current_angle = float(np.arctan2(self.east_error, self.north_error))
                 self.yaw_setpoint = self.current_angle
-                #
 
                 # Compute control
                 if self.use_nmpc:
@@ -290,10 +292,10 @@ class live_guidance():
                 else:
                     tau_X, tau_N = self.calculate_forces_pid()
 
-                # 6) Send control
+                # Send control
                 self.otter.controller_inputs_torque(tau_X, tau_N, self.surge_setpoint)
 
-                # 7) Logging
+                # Logging
                 self.otter.sorted_values["north_error"] = self.north_error
                 self.otter.sorted_values["east_error"] = self.east_error
                 self.otter.sorted_values["distance_to_target"] = self.distance_to_target
@@ -309,7 +311,7 @@ class live_guidance():
                 self.counter += 1
                 self.total_distance_to_target += self.distance_to_target
 
-                # 8) Rate control
+                # Rate control
                 elapsed_time = time.time() - start_time
                 if elapsed_time < self.cycletime:
                     time.sleep(self.cycletime - elapsed_time)

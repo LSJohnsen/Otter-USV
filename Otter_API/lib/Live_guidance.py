@@ -234,14 +234,13 @@ class live_guidance():
             while not stop_event.is_set():
                 start_time = time.time()
 
-                # latest UGPS snapshot (from separate thread ugps reader)
+                # latest UGPS (from separate thread reader)
                 with self._ugps_lock:
                     ugps = None if self._ugps_latest is None else dict(self._ugps_latest)
 
-                # 2) Validate s
+                #drift if no singal
                 if (ugps is None) or ((time.time() - ugps["t"]) > ugps_timeout_s):
     
-                    # drift if no signal
                     print("UGPS missing -> drift mode")
                     self.otter.drift()
                     time.sleep(0.5)
@@ -654,6 +653,7 @@ class live_guidance():
         tau_X, tau_N = float(tau[0]), float(tau[1])
         return tau_X, tau_N
 
+    # get target ned position in live tracking 
     def ugps_geo_to_ned(self, ugps_lat, ugps_lon, ugps_h=0.0):
         obs_lat = self.otter.sorted_values["observer_lat"]
         obs_lon = self.otter.sorted_values["observer_lon"]

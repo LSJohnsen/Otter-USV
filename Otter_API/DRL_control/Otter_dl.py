@@ -16,6 +16,7 @@ from lib.plotTimeSeries import *
 import matplotlib.pyplot as plt
 import numpy as np
 import gymnasium as gym
+import pandas as pd
 from gymnasium.spaces import Box
 import torch
 from stable_baselines3 import PPO
@@ -47,6 +48,7 @@ store_force_file = False                                                        
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
 training_timesteps = 30000000                                                                           # Set timesteps (10mil-50mil+ depending on straight/circle)
+log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                                       # Target north position from reference point
 start_east = -20 #not used?                                                                             # Target east position from reference point
@@ -247,14 +249,16 @@ class OtterEnv(gym.Env):
                 "avg_distance_to_target": self.last_avg_distance,
                 "reached_target_time":    self.last_reached_target_time,
             }
-            io_log_params(param_dict, filename="parameters_DRL.txt", verbose=True)
-
-            log_to_csv(
-                simTime=self.last_sim_time,
-                simData=self.last_sim_data,
-                targetData=self.last_target_data,
-                filename="sim_log_DRL.csv",
-                verbose=True)
+            
+            
+            if log_results:
+                io_log_params(param_dict, filename="parameters_DRL.txt", verbose=True)
+                log_to_csv(
+                    simTime=self.last_sim_time,
+                    simData=self.last_sim_data,
+                    targetData=self.last_target_data,
+                    filename="sim_log_DRL.csv",
+                    verbose=True)
 
         if not hasattr(self, 'last_distance'):
             self.last_distance = distance_to_target
@@ -353,16 +357,16 @@ class OtterEnv(gym.Env):
                 r_min, r_max = 5.0, radius          # choose bounds relevant scenario
             else:
                 r_min, r_max = 5.0, 50
-            alpha = rng.uniform(-np.pi, np.pi)
-            r = rng.uniform(r_min, r_max)
+            alpha = rng.uniform(-np.pi, np.pi)      # randomize direction from target
+            r = rng.uniform(r_min, r_max)           # randomize distance to target
 
-            x = target_x + r * np.cos(alpha)
+            x = target_x + r * np.cos(alpha)        # start x/y based on target position 
             y = target_y + r * np.sin(alpha)
 
-            # Optional: randomize initial heading too
-            yaw = rng.uniform(-np.pi, np.pi)
+            
+            yaw = rng.uniform(-np.pi, np.pi)        # randomize heading
 
-        else: 
+        else:                                       # In testing to validate against other controls
             x = target_x
             y = target_y + 10.0  
 
@@ -572,9 +576,18 @@ if __name__ == "__main__":
     logged_once = False
 
     obs = eval_env.reset()
-    for i in range(10000):
+
+    # monte carlo logs for eval
+    mc_log = {"IAE_distance": [], 
+                "IAE_heading": [],
+                "avg_distance": [],
+                "intercept_time": [],
+                "success": [],
+                }
+    for i in range(100000):
 
         env_single = eval_env.envs[0]
+
         last_target = env_single.simulator.moving_target.copy()
         action, _states = model.predict(obs)
         
@@ -582,10 +595,16 @@ if __name__ == "__main__":
         obs, rewards, dones, infos = eval_env.step(action)
 
         if dones[0]:
+            
+            mc_log["IAE_distance"].append(env_single.last_IAE_distance)
+            mc_log["IAE_heading"].append(env_single.last_IAE_heading)
+            mc_log["avg_distance"].append(env_single.last_avg_distance)
+            mc_log["intercept_time"].append(env_single.last_reached_target_time)
+            mc_log["success"].append(int(env_single.reached_flag))
 
             iae_distances.append(env_single.last_IAE_distance)
             iae_headings.append(env_single.last_IAE_heading)
-
+            
             if episode_count == 0:
                 actions_arr = np.vstack(episode_actions)
                 plt.figure()
@@ -624,3 +643,7 @@ if __name__ == "__main__":
 
     print(f"Average eval IAE distance: {np.mean(iae_distances):.2f}")
     print(f"Average eval IAE heading:  {np.mean(iae_headings):.2f}")
+
+    # save mc for plotting 
+    df = pd.DataFrame(mc_log)
+    df.to_csv("monte_carlo_results.csv", index=False)

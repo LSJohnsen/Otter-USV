@@ -48,11 +48,12 @@ circular_target = True                                                          
 animate_path = False
 training_timesteps = 30000000                                                                           # Set timesteps (10mil-50mil+ depending on straight/circle)
 
-start_north = -20                                                                                       # Target north position from reference point
-start_east = -20                                                                                        # Target east position from reference point
+start_north = -20 #not used?                                                                                       # Target north position from reference point
+start_east = -20 #not used?                                                                             # Target east position from reference point
+randomize_position = True                                                                               # Used to randomize usv start position for better training
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
-radius = 40                                                                                             # If tracking a circular motion
+radius = 40 # SIM LOGIC LINE 500 X/Y START (FIX)                                                        # If tracking a circular motion 
 max_target_delta = 250                                                                                  # Max distance target moves before truncation
 max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
@@ -341,18 +342,29 @@ class OtterEnv(gym.Env):
 
         self.initial_target = list(self.simulator.moving_target)
 
-        #  choose initial USV state relative to target 
+        #  choose initial USV state relative to target (should randomize during training)
+        rng = self.np_random 
+        
         target_pos = np.array(self.simulator.moving_target, dtype=float)
         target_x, target_y = target_pos
 
-        if self.simulator.circular_target:
-            yaw = 0.0
-        else:
-            yaw = np.arctan2(self.simulator.moving_target_increase[1],
-                            self.simulator.moving_target_increase[0])
+        if randomize_position:
+            if circular_target:
+                r_min, r_max = 5.0, radius          # choose bounds relevant scenario
+            else:
+                r_min, r_max = 5.0, 50
+            alpha = rng.uniform(-np.pi, np.pi)
+            r = rng.uniform(r_min, r_max)
 
-        x = target_x
-        y = target_y + 10.0  
+            x = target_x + r * np.cos(alpha)
+            y = target_y + r * np.sin(alpha)
+
+            # Optional: randomize initial heading too
+            yaw = rng.uniform(-np.pi, np.pi)
+
+        else: 
+            x = target_x
+            y = target_y + 10.0  
 
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)

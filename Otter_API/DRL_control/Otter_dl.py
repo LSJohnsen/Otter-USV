@@ -309,12 +309,14 @@ class OtterEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
 
+
         #  store last metrics 
         if self.current_step > 0:
             self.last_IAE_distance, self.last_IAE_heading = self.metrics.get_IAE()
             self.last_ISU = self.metrics.get_ISU()
             self.last_ISU_normalized = self.metrics.get_ISU_normalized()
             self.last_IAU = self.metrics.get_IAU()
+
         else:
             self.last_IAE_distance = 0.0
             self.last_IAE_heading = 0.0
@@ -366,9 +368,14 @@ class OtterEnv(gym.Env):
             
             yaw = rng.uniform(-np.pi, np.pi)        # randomize heading
 
+            self.r0 = float(r)                      # store for log
+            self.alpha0 = float(alpha)
+
         else:                                       # In testing to validate against other controls
             x = target_x
             y = target_y + 10.0  
+            self.r0 = 0.0
+            self.alpha0 = 0.0
 
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)
@@ -583,8 +590,12 @@ if __name__ == "__main__":
                 "avg_distance": [],
                 "intercept_time": [],
                 "success": [],
+                "r0": [],
+                "alpha0": []
                 }
-    for i in range(100000):
+    
+    # for MC use 540000 for 200 samples (saving will be slow)
+    for i in range(10000):
 
         env_single = eval_env.envs[0]
 
@@ -601,6 +612,8 @@ if __name__ == "__main__":
             mc_log["avg_distance"].append(env_single.last_avg_distance)
             mc_log["intercept_time"].append(env_single.last_reached_target_time)
             mc_log["success"].append(int(env_single.reached_flag))
+            mc_log["r0"].append(env_single.r0)
+            mc_log["alpha0"].append(env_single.alpha0)
 
             iae_distances.append(env_single.last_IAE_distance)
             iae_headings.append(env_single.last_IAE_heading)
@@ -634,6 +647,8 @@ if __name__ == "__main__":
                 if episode_count == 0:
                     actions_arr = np.vstack(episode_actions)
                     ...
+
+                # increase to compare more plots
                 if episode_count < 1:
                     env_single.render()
 

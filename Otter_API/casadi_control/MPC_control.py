@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Find alternative method
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
 
 '''
 remember to move tuning params to main

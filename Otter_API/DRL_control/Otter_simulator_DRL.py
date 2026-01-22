@@ -502,10 +502,10 @@ class OtterSimDRL():
 
 
 
-            angle = eta[5]                                                                                                          # Gets the current heading of the Otter
+            angle = eta[5]                                                       # Gets the current heading of the Otter
 
        
-            self.tau_N = max(min(self.tau_N, self.max_force), -(self.max_force)) #                                                                          #
+            self.tau_N = max(min(self.tau_N, self.max_force), -(self.max_force)) #                                                                          
             remaining_force = self.max_force - abs(self.tau_N)                   #
                                                         
                                                                                  #   Makes sure that the forces are not over saturated and prioritizes yaw movement

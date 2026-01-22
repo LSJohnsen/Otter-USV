@@ -1,8 +1,0 @@
-Control_method: DRL
-IAE_distance: 0.0
-IAE_heading: 0.0
-ISU: 0.0
-ISU_normalized: 0.0
-IAU: 0.0
-avg_distance_to_target: 0.39000616446745484
-reached_target_time: 0.0

@@ -265,6 +265,7 @@ class otter_simulator():
                     east_distance = 0
                     self.distance_to_target = 0
 
+                
                 self.yaw_setpoint = math.atan2(east_distance, north_distance)
                 heading_error  = (yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi #this
 

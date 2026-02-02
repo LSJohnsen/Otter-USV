@@ -267,7 +267,7 @@ class live_guidance():
                 self.current_angle = float(np.arctan2(self.east_error, self.north_error))
                 self.yaw_setpoint = self.current_angle
                 '''
-                # error setpoint from reference model
+                # error setpoint from reference model position/velocity/acceleration
                 raw_dist = float(np.hypot(self.north_error, self.east_error))
 
                 self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = \
@@ -675,7 +675,7 @@ class live_guidance():
         except Exception as e:
             print(f"Error when trying to save the log: {e}")
 
-    #target reference model @Alexander Rambech 
+    #target reference model @Alexander Rambech / Fossen
     @staticmethod
     def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n):
         x_desired = np.array([x_d, x_d_dot, x_d_ddot])

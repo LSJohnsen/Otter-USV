@@ -355,7 +355,7 @@ if __name__ == "__main__":
         label = info["label"]
         simTime, simData, targetData = raw_logs[label]
 
-        # Crop PID/NMPC to DRL horizon (DRL left unchanged)
+        # Crop PID/NMPC to DRL horizon 
         if label != "DRL":
             mask       = simTime <= T_end
             simTime    = simTime[mask]

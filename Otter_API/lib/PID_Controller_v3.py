@@ -3,7 +3,7 @@ import math
 
 
 """
-based on v2, decouple the controllers to be independent 
+based on v2, cleaner implementation
 """
 class PIDController:
 

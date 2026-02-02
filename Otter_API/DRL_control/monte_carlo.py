@@ -23,7 +23,7 @@ def plot_cdf(df, key="IAE_distance"):
     plt.plot(values, cdf)
     plt.xlabel(key.replace("_", " "))
     plt.ylabel("CDF")
-    plt.title(f"Monte-Carlo CDF of {key}")
+    plt.title(f"Monte-Carlo CDF of distance IAE")
     plt.grid(True)
     plt.show()
 

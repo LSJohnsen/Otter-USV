@@ -370,3 +370,18 @@ def gvect(W,B,theta,phi,r_bg,r_bb):
     return g
 
 
+# (fossen p. 337)
+def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n):
+    x_desired = np.array([x_d, x_d_dot, x_d_ddot])
+    x_reference = np.array([0, 0, x_ref])
+
+    Ad = np.array([
+        [0, 1, 0],
+        [0, 0, 1],
+        [-omega_n**3, -(2*zeta+1)*omega_n**2, -(2*zeta+1)*omega_n]
+    ])
+    Bd = np.array([0, 0, omega_n**3])
+
+    x_d, x_d_dot, x_d_ddot = Ad.dot(x_desired) + Bd.dot(x_reference)
+
+    return x_d, x_d_dot, x_d_ddot

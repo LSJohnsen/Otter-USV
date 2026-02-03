@@ -691,3 +691,21 @@ class live_guidance():
         x_d, x_d_dot, x_d_ddot = Ad.dot(x_desired) + Bd.dot(x_reference)
     
         return x_d, x_d_dot, x_d_ddot
+    
+    """
+    def third_order_reference(self, x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n, dt): with timestep for proper integration
+    x = np.array([x_d, x_d_dot, x_d_ddot], dtype=float)
+
+    Ad = np.array([
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [-omega_n**3, -(2.0*zeta + 1.0)*omega_n**2, -(2.0*zeta + 1.0)*omega_n]
+    ], dtype=float)
+
+    Bd = np.array([0.0, 0.0, omega_n**3], dtype=float)
+
+    x_dot = Ad @ x + Bd * float(x_ref)   # (3,) vector
+    x_next = x + dt * x_dot              # Euler integration
+
+    return float(x_next[0]), float(x_next[1]), float(x_next[2])
+    """

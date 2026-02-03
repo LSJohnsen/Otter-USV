@@ -10,7 +10,7 @@ class PIDController:
     def __init__(self,
                  kp_surge, ki_surge, kd_surge,
                  kp_yaw,   ki_yaw,   kd_yaw,
-                 Imax_surge=10.0,
+                 Imax_surge=1000.0,
                  Imax_yaw=40.0):
 
         # gains

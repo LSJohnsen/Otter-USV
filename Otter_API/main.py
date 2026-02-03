@@ -75,7 +75,17 @@ parameter_list = 3 # Tuning parameters, 1 for trial and error, 2 for pole placem
 trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0, "yaw_kp" : 37, "yaw_ki" : 4, "yaw_kd" : 8}
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
+pp_04 = {"surge_kp" : 14.39, "surge_ki" : 25.13, "surge_kd" : 1, "yaw_kp" : 25.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86} # third order trjacectory (>integral surge)
 test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
+
+if parameter_list == 1:
+    pdi = trial_and_error_parameters
+elif parameter_list == 2:
+    pdi = pp_05
+elif parameter_list == 3:
+    pdi = pp_04
+elif parameter_list == 4:
+    pdi = test_pdi
 
 #############################################################################################################################################################################################################################################################
 #                                                                                                                                                                                                                                                           #
@@ -113,15 +123,6 @@ filename = '3D_animation.gif'                                                   
 browser = 'chrome'                                                                                      # browser for visualization of animated GIF
 
 
-
-if parameter_list == 1:
-    pdi = trial_and_error_parameters
-elif parameter_list == 2:
-    pdi = pp_05
-elif parameter_list == 3:
-    pdi = pp_04
-elif parameter_list == 4:
-    pdi = test_pdi
 
 
 
@@ -210,7 +211,8 @@ def main(option):
                                                                 sampleTime, 
                                                                 otter, 
                                                                 surge_PID, 
-                                                                yaw_PID)   # This runs the whole simulation
+                                                                yaw_PID,
+                                                                trajectory_referece=True)   # This runs the whole simulation
             log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #

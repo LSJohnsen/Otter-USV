@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler
+from lib.gnc import Smtrx, Hmtrx, Rzyx, m2c, crossFlowDrag, sat, attitudeEuler, third_order_reference
 import pandas as pd
 from numba import jit, cuda
 from pathlib import Path
@@ -183,7 +183,7 @@ class otter_simulator():
 
         self.mass = m + self.mp
 
-    def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID):
+    def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID, trajectory_referece=True):
         
         counter = 0                         #
         reached_target_time = 0             #
@@ -215,7 +215,17 @@ class otter_simulator():
         self.target_counter = 0
         self.target_coordinates = self.target_list[self.target_counter]
 
+        # total distance throughout simulation (for metrics)
         dist_tot = 0
+
+        # For third order trajectory reference
+        self.ref_dist = 0.0
+        self.ref_dist_dot = 0.0
+        self.ref_dist_ddot = 0.0
+
+        # test zeta/omega for surge reference
+        self.zeta_ref = 0.9
+        self.omega_n_ref = 0.6
 
 
         # Main simulation loop
@@ -258,8 +268,21 @@ class otter_simulator():
                 east_distance = self.moving_target[1] - eta[1]
                            
                 self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2) #this
-                dist_tot = dist_tot + self.distance_to_target
+                dist_tot = dist_tot + self.distance_to_target    
 
+                # use third order traj reference
+                if trajectory_referece:
+                    self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
+                        self.ref_dist,
+                        self.ref_dist_dot,
+                        self.ref_dist_ddot,
+                        self.distance_to_target,
+                        self.zeta_ref,
+                        self.omega_n_ref)
+                    
+                    self.distance_to_target = self.ref_dist
+                    
+                
                 if self.distance_to_target <= self.surge_setpoint:
                     north_distance = 0
                     east_distance = 0

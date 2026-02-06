@@ -9,7 +9,16 @@ from logs.IO import log_params
 
 class otter_simulator():
 
-    def __init__(self, target_list, use_target_coordinates, surge_target_radius, use_moving_target, moving_target_start, moving_target_increase, end_when_last_target_reached, verbose, store_force_file, circular_target):
+    def __init__(self, target_list,                 # if using list of target coordinates (reaching target creates new target point)
+                 use_target_coordinates,            # tracking based on coordinates (dynamic)
+                 surge_target_radius,               
+                 use_moving_target, 
+                 moving_target_start, 
+                 moving_target_increase, 
+                 end_when_last_target_reached, 
+                 verbose, 
+                 store_force_file,              
+                 circular_target):
 
         # Variable initializations:
         self.use_target_coordinates = use_target_coordinates
@@ -52,6 +61,15 @@ class otter_simulator():
 
         self.n1neg = False
         self.n2neg = False
+
+        # For third order trajectory reference
+        self.ref_dist = 0.0
+        self.ref_dist_dot = 0.0
+        self.ref_dist_ddot = 0.0
+
+        # test zeta/omega for surge reference
+        self.zeta_ref = 0.9
+        self.omega_n_ref = 0.6
 
         #performance indices
         self.metrics = PerformanceMetrics()
@@ -183,7 +201,7 @@ class otter_simulator():
 
         self.mass = m + self.mp
 
-    def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID, trajectory_referece=True):
+    def simulate(self, N, sampleTime, otter, surge_PID, yaw_PID, trajectory_reference=True):
         
         counter = 0                         #
         reached_target_time = 0             #
@@ -217,15 +235,6 @@ class otter_simulator():
 
         # total distance throughout simulation (for metrics)
         dist_tot = 0
-
-        # For third order trajectory reference
-        self.ref_dist = 0.0
-        self.ref_dist_dot = 0.0
-        self.ref_dist_ddot = 0.0
-
-        # test zeta/omega for surge reference
-        self.zeta_ref = 0.9
-        self.omega_n_ref = 0.6
 
 
         # Main simulation loop
@@ -271,7 +280,7 @@ class otter_simulator():
                 dist_tot = dist_tot + self.distance_to_target    
 
                 # use third order traj reference
-                if trajectory_referece:
+                if trajectory_reference:
                     self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
                         self.ref_dist,
                         self.ref_dist_dot,
@@ -491,7 +500,7 @@ class otter_simulator():
         return (simTime, simData, targetData)
 
 
-    def simulate_NMPC(self, N, sampleTime, otter, nmpc, control_dt=0.1):
+    def simulate_NMPC(self, N, sampleTime, otter, nmpc, control_dt=0.1, trajectory_reference=True):
 
             counter = 0
             reached_target_time = 0
@@ -520,6 +529,7 @@ class otter_simulator():
             # NMPC timing
             k_per_solve = max(1, int(round(control_dt / sampleTime)))
             last_tau_u = np.zeros(3)  # [X, Y, N]
+
 
             for i in range(N + 1):
                 t = i * sampleTime
@@ -552,6 +562,18 @@ class otter_simulator():
 
                     self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
                     dist_tot = dist_tot + self.distance_to_target
+
+                        # use third order traj reference
+                    if trajectory_reference:
+                        self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
+                            self.ref_dist,
+                            self.ref_dist_dot,
+                            self.ref_dist_ddot,
+                            self.distance_to_target,
+                            self.zeta_ref,
+                            self.omega_n_ref)
+                        
+                        self.distance_to_target = self.ref_dist
 
                     if self.distance_to_target <= self.surge_setpoint:
                         north_distance = 0

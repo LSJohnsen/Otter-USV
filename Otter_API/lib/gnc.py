@@ -370,7 +370,7 @@ def gvect(W,B,theta,phi,r_bg,r_bb):
     return g
 
 
-# (fossen p. 337)
+# (GNC p. 337) x_ref is current distance to target, returns reference. reduces overshoot
 def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n):
     x_desired = np.array([x_d, x_d_dot, x_d_ddot])
     x_reference = np.array([0, 0, x_ref])

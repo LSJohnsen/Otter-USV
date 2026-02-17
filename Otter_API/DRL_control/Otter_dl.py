@@ -47,7 +47,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 30000000                                                                           # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 1000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                                       # Target north position from reference point
@@ -56,7 +56,7 @@ randomize_position = True                                                       
 randomize_path = True                                                                                   # Randomizes paths to circular/straight line/stationary
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
-radius = 40 # SIM LOGIC LINE~500 X/Y START (FIX)                                                        # If tracking a circular motion 
+radius = 40 # SIM LOGIC LINE~500 X/Y START (FIX)                                                        # If not tracking a circular motion 
 max_target_delta = 250                                                                                  # Max distance target moves before truncation
 max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
@@ -68,13 +68,10 @@ FPS = 60                                                                        
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
 browser = 'chrome'
 
-CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint.zip")                                   # checkpoint model path
-CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize.pkl")
+CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_rand.zip")                                   # checkpoint model path
+CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize_rand.pkl")
 FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
 FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
-
-CIRCLE_MODEL = os.path.join(SAVE_DIR, "circle_updated.zip")                             # circle model path 
-CIRCLE_VECNORM = os.path.join(SAVE_DIR, "circle_normalize_updated.pkl")
 
 otter = Otter_api.otter()
 
@@ -199,7 +196,7 @@ class OtterEnv(gym.Env):
                                 actuals])
 
         self.simData.append(full_state)
-        self.targetData.append(target)
+        self.targetData.append(np.array(self.simulator.moving_target, dtype=float))
         self.simTime.append(self.current_step * self.sampletime)
         self.yawHistory.append(eta[5])
         self.distanceHistory.append(distance_to_target)
@@ -273,8 +270,30 @@ class OtterEnv(gym.Env):
         terminated = truncated
         info = {}
 
-        reward += 3 * (self.last_distance - distance_to_target)
+        #distance_to_target, u = nu[0], v = nu[1], r = nu[5]
+        intercept_tolerance = 0.5                                   # should be set to UOWC width? 
+        w = np.exp(-(distance_to_target / intercept_tolerance)**2)  # exp scaling for smoother movement close to target
 
+        reward += 3 * (self.last_distance - distance_to_target)     # reward reducing distance
+        reward -= 0.1 * self.last_distance                          # penalize distance to target
+    
+
+        is_moving = 1.0 if self.simulator.use_moving_target else 0.0
+
+        # heading reward when further away from target
+        reward += (1.0 - w) * 0.5 * np.cos(heading_error)
+
+        # for station-keeping
+        reward -= w * (1.0 - is_moving) * (1.0*abs(nu[0]) + 1.0*abs(nu[1]) + 0.8*abs(nu[5]))
+
+        # reduce oscillation
+        reward -= w * is_moving * (0.6*abs(nu[3]) + 0.6*abs(nu[5]))
+
+        # smooth actuation close to target
+        reward -= w * 0.02 * (abs(tau_X) + abs(tau_N))
+
+        self.last_distance = distance_to_target
+        '''
         if self.simulator.circular_target:
             reward -= 0.1 * abs(nu[5])
         else:
@@ -288,6 +307,7 @@ class OtterEnv(gym.Env):
 
         if distance_to_target < self.simulator.surge_setpoint:
             reward += 5.0 # test different here (oscillating at circular)
+        '''
 
         return obs, reward, terminated, truncated, info
 
@@ -358,7 +378,7 @@ class OtterEnv(gym.Env):
         elif self.path_mode == "line":
             self.simulator.circular_target = False
             self.simulator.use_moving_target = True
-            velocity = float(self.np_random.uniform(0.2, 0.8))
+            velocity = float(self.np_random.uniform(-0.5, 1))
             heading = float(self.np_random.uniform(-np.pi, np.pi))
             self.simulator.moving_target_increase = np.array([
                 velocity * np.cos(heading),
@@ -493,7 +513,7 @@ class CallBackLog(BaseCallback):
                 self.IAE_distance_history.append(IAE_distance)
                 self.IAE_heading_history.append(IAE_heading)
 
-                if self.verbose and len(self.IAE_distance_history) % 100 == 0:
+                if self.verbose and len(self.IAE_distance_history) % 10 == 0:
                     print(f"Episode {len(self.IAE_distance_history)} - "
                           f"IAE Distance: {IAE_distance:.2f}, Heading: {IAE_heading:.2f}")
 

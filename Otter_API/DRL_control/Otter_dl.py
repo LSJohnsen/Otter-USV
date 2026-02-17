@@ -53,9 +53,10 @@ log_results = False                                                             
 start_north = -20 #not used?                                                                                       # Target north position from reference point
 start_east = -20 #not used?                                                                             # Target east position from reference point
 randomize_position = True                                                                               # Used to randomize usv start position for better training
+randomize_path = True                                                                                   # Randomizes paths to circular/straight line/stationary
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
-radius = 40 # SIM LOGIC LINE 500 X/Y START (FIX)                                                        # If tracking a circular motion 
+radius = 40 # SIM LOGIC LINE~500 X/Y START (FIX)                                                        # If tracking a circular motion 
 max_target_delta = 250                                                                                  # Max distance target moves before truncation
 max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
@@ -101,6 +102,8 @@ class OtterEnv(gym.Env):
 
         self.simulator = simulator
         self.otter = otter
+        self.path_modes = ["circle", "line", "stationary"] 
+        self.path_mode = "circle"
 
         self.sampletime = 0.1  # iteration updates
         self.episode_duration = 400000  # no. simulation samples (truncates at distances, just ensure not too small)
@@ -117,6 +120,7 @@ class OtterEnv(gym.Env):
         self.simTime = []
         self.distanceHistory = []
         self.headingErrorHistory = []
+        self.yawHistory = []
         self.last_sim_data = None
         self.last_target_data = None
         self.last_sim_time = None
@@ -207,8 +211,9 @@ class OtterEnv(gym.Env):
             self.reached_target_time = self.current_step * self.sampletime
 
         # Normalize target distances (if distance > ... 1) 
-        if circular_target:
-            normalized_distance = np.clip(distance_to_target / radius, -1.0, 1.0)
+        if self.simulator.circular_target:
+            r = float(getattr(self.simulator, "radius", radius))
+            normalized_distance = np.clip(distance_to_target / r, -1.0, 1.0)
         else:
             normalized_distance = np.tanh(distance_to_target / max_target_delta)
 
@@ -270,15 +275,16 @@ class OtterEnv(gym.Env):
 
         reward += 3 * (self.last_distance - distance_to_target)
 
-        if circular_target:
-            self.last_distance = distance_to_target
-            reward -= 0.1 * abs(nu[5])  # yaw-rate penalty
+        if self.simulator.circular_target:
+            reward -= 0.1 * abs(nu[5])
         else:
             reward -= 0.1 * distance_to_target
             reward += 0.5 * np.cos(heading_error)
-            reward -= 0.2 * abs(nu[1])  # sway-rate penalty
-            reward -= 0.1 * abs(nu[5])  # yaw-rate penalty
-            self.last_distance = distance_to_target
+            reward -= 0.2 * abs(nu[1])
+            reward -= 0.1 * abs(nu[5])
+
+        self.last_distance = distance_to_target
+
 
         if distance_to_target < self.simulator.surge_setpoint:
             reward += 5.0 # test different here (oscillating at circular)
@@ -337,15 +343,34 @@ class OtterEnv(gym.Env):
         self.reached_flag = False
 
         # reset moving target & simulator time
-        # reset time accumulator for circular target
-        self.simulator.asd = 0.0
+        
+        if randomize_path == True:
+            self.path_mode = np.random.choice(self.path_modes)
 
-        if self.simulator.circular_target:
-            # start exactly at the configured start point
-            self.simulator.moving_target = self.simulator.moving_target_start.copy()
-        else:
-            self.simulator.moving_target = self.simulator.moving_target_start.copy()
+        if self.path_mode == "circle":
+            self.simulator.circular_target = True
+            self.simulator.use_moving_target = True
+            # randomize radius
+            self.simulator.radius = float(self.np_random.uniform(20.0, 60.0))
+            # reset any circular phase
+            self.simulator.asd = 0.0
 
+        elif self.path_mode == "line":
+            self.simulator.circular_target = False
+            self.simulator.use_moving_target = True
+            velocity = float(self.np_random.uniform(0.2, 0.8))
+            heading = float(self.np_random.uniform(-np.pi, np.pi))
+            self.simulator.moving_target_increase = np.array([
+                velocity * np.cos(heading),
+                velocity * np.sin(heading)
+            ], dtype=float)
+
+        elif self.path_mode == "stationary":
+            self.simulator.circular_target = False
+            self.simulator.use_moving_target = False
+            self.simulator.moving_target_increase = np.array([0.0, 0.0], dtype=float)
+
+        self.simulator.moving_target = self.simulator.moving_target_start.copy()
         self.initial_target = list(self.simulator.moving_target)
 
         #  choose initial USV state relative to target (should randomize during training)
@@ -354,11 +379,14 @@ class OtterEnv(gym.Env):
         target_pos = np.array(self.simulator.moving_target, dtype=float)
         target_x, target_y = target_pos
 
+
         if randomize_position:
-            if circular_target:
-                r_min, r_max = 5.0, radius          # choose bounds relevant scenario
+            if self.simulator.circular_target:
+                r_min = 5.0
+                r_max = float(getattr(self.simulator, "radius", radius))
             else:
-                r_min, r_max = 5.0, 50
+                r_min, r_max = 5.0, 50.0
+
             alpha = rng.uniform(-np.pi, np.pi)      # randomize direction from target
             r = rng.uniform(r_min, r_max)           # randomize distance to target
 
@@ -540,8 +568,8 @@ if __name__ == "__main__":
         eval_env = VecNormalize.load(CHECKPOINT_VECNORM, eval_env)
 
         # set to evaluation mode
-        eval_env.training = False          # <- no updates to running stats
-        eval_env.norm_reward = False       # <- don't normalize rewards during eval
+        eval_env.training = False          #  no updates to running stats
+        eval_env.norm_reward = False       #  don't normalize rewards during eval
 
         # Load the trained policy
         model = PPO.load(CHECKPOINT_MODEL, env=eval_env, device="cpu")

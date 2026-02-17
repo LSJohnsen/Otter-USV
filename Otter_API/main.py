@@ -152,7 +152,7 @@ yaw_PID   = YawPIDAdapter(pid)
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
 
-#initialize nmpc
+#initialize nmpc - model_3dof.py transforms 6dof to 3dof by matrix reduction
 otter_6dof_params = usv_params_6dof()
 otter_3dof = Otter3DOF(otter_6dof_params)
 nmpc = NMPCControl(

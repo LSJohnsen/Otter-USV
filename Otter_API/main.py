@@ -212,7 +212,7 @@ def main(option):
                                                                 otter, 
                                                                 surge_PID, 
                                                                 yaw_PID,
-                                                                trajectory_referece=True)   # This runs the whole simulation
+                                                                trajectory_reference=True)   # This runs the whole simulation
             log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #

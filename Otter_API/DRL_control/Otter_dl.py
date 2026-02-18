@@ -51,7 +51,7 @@ animate_path = False
 training_timesteps = 1000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
-start_north = -20 #not used?                                                                                       # Target north position from reference point
+start_north = -20 #not used?                                                                            # Target north position from reference point
 start_east = -20 #not used?                                                                             # Target east position from reference point
 randomize_position = True                                                                               # Used to randomize usv start position for better training
 randomize_path = True                                                                                   # Randomizes paths to circular/straight line/stationary
@@ -69,8 +69,8 @@ FPS = 60                                                                        
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
 browser = 'chrome'
 
-CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_rand.zip")                                   # checkpoint model path
-CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize_rand.pkl")
+CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_station.zip")                                   # checkpoint model path
+CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize_station.pkl")
 FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
 FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
 
@@ -111,7 +111,7 @@ def append_iae_training_progress(csv_path: str, iae_callback):
         for ep in range(n):
             w.writerow([int(time.time()), ep + 1, float(iae_dist[ep]), float(iae_head[ep])])
 
-    print(f"[IAE CSV] Appended {n} episodes to {csv_path}")
+    print(f"IAE CSV: Appended {n} episodes to {csv_path}")
 
 class OtterEnv(gym.Env):
     def __init__(self, simulator, otter):
@@ -121,6 +121,10 @@ class OtterEnv(gym.Env):
         self.otter = otter
         self.path_modes = ["circle", "line", "stationary"] 
         self.path_mode = "circle"
+
+        # Overwrite when training one at a time. station->line->all three
+        self.path_modes = ["stationary"] 
+        self.path_mode = "stationary" 
 
         self.sampletime = 0.1  # iteration updates
         self.episode_duration = 400000  # no. simulation samples (truncates at distances, just ensure not too small)
@@ -741,4 +745,4 @@ try:
     if "IAE_callback" in globals() and mode == 1:
         append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
 except Exception as e:
-    print(f"[IAE CSV] Failed to write IAE progress: {e}")
+    print(f"IAE CSV: Failed to write IAE progress: {e}")

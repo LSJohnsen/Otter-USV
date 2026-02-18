@@ -28,7 +28,8 @@ from stable_baselines3.common.vec_env import VecNormalize
 from torch import nn
 from lib.Performance_metrics import PerformanceMetrics
 from logs.IO import log_to_csv, log_params as io_log_params
-
+import csv
+import time
 
 # Use cpu for PPO
 device = torch.device("cpu")
@@ -92,6 +93,25 @@ print("initialized otter api and simulator")
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
 otter.dimU = len(otter.controls)
 
+# used to log IAE over several training sessions
+def append_iae_training_progress(csv_path: str, iae_callback):
+    # pull callback
+    iae_dist, iae_head = iae_callback.return_log()
+    n = min(len(iae_dist), len(iae_head))
+    if n == 0:
+        print(f"IAE CSV: No episodes logged yet; nothing to write to {csv_path}")
+        return
+
+    file_exists = os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as f:
+        w = csv.writer(f)
+        if not file_exists:
+            w.writerow(["unix_time", "episode", "IAE_distance", "IAE_heading"])
+        # Append all stored episodes
+        for ep in range(n):
+            w.writerow([int(time.time()), ep + 1, float(iae_dist[ep]), float(iae_head[ep])])
+
+    print(f"[IAE CSV] Appended {n} episodes to {csv_path}")
 
 class OtterEnv(gym.Env):
     def __init__(self, simulator, otter):
@@ -569,6 +589,10 @@ if __name__ == "__main__":
             model.save(CHECKPOINT_MODEL)
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
+
+            # Add this line:
+            append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
+
             print("Checkpoint saved. Exiting.")
             sys.exit(0)
 
@@ -710,3 +734,11 @@ if __name__ == "__main__":
     # save mc for plotting 
     df = pd.DataFrame(mc_log)
     df.to_csv("monte_carlo_results.csv", index=False)
+
+    
+
+try:
+    if "IAE_callback" in globals() and mode == 1:
+        append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
+except Exception as e:
+    print(f"[IAE CSV] Failed to write IAE progress: {e}")

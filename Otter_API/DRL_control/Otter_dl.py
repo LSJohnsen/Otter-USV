@@ -25,6 +25,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import VecNormalize
+from collections import deque
 from torch import nn
 from lib.Performance_metrics import PerformanceMetrics
 from logs.IO import log_to_csv, log_params as io_log_params
@@ -41,8 +42,8 @@ use_target_coordinates = False                                                  
 use_moving_target = True                                                                                # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
-moving_target_start = [0, -10]                                                                         # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [-0.5, 0.0]                                                                     # Movement of the moving target each second                                                                                  # How many meters target should move each simulation before truncation
+moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
+moving_target_increase = [-0.5, 0.0]                                                                    # Movement of the moving target each second                                                                                  # How many meters target should move each simulation before truncation
 target_radius = 0.2                                                                                     # Radius from center of target that counts as target reached
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
@@ -133,6 +134,12 @@ class OtterEnv(gym.Env):
         self.target_arc_length = 0
         self.prev_tau_X = 0
 
+        # requirements for finished learning
+        self.hold_radius = 0.2          # meters
+        self.hold_time_required = 10.0  # seconds
+        self.hold_time = 0.0            # accumulate within radius
+        self.last_hold_success = False  # stored at end of episode
+
         self.Umax = 6 * 0.5144
         self.max_force = 200
 
@@ -208,16 +215,25 @@ class OtterEnv(gym.Env):
             u2=u_actual[1],
             dt=self.sampletime,
         )
-   
+        
+
 
         commands = np.array([tau_X, tau_N])
         actuals = u_actual
+        
 
         # Stack all usv states into sequence of arrays
         full_state = np.hstack([eta,
                                 nu,
                                 commands,
                                 actuals])
+        
+        # update for training end if enough episodes
+        if distance_to_target <= self.hold_radius:
+            self.hold_time += self.sampletime
+        else:
+            self.hold_time = 0.
+
 
         self.simData.append(full_state)
         self.targetData.append(np.array(self.simulator.moving_target, dtype=float))
@@ -294,44 +310,24 @@ class OtterEnv(gym.Env):
         terminated = truncated
         info = {}
 
-        #distance_to_target, u = nu[0], v = nu[1], r = nu[5]
-        intercept_tolerance = 0.5                                   # should be set to UOWC width? 
-        w = np.exp(-(distance_to_target / intercept_tolerance)**2)  # exp scaling for smoother movement close to target
 
-        reward += 3 * (self.last_distance - distance_to_target)     # reward reducing distance
-        reward -= 0.1 * self.last_distance                          # penalize distance to target
-    
+        d0 = 1 # distance where behaviour should change - test different, around 2-4x "over"
+        w = np.exp(-(distance_to_target / d0)**2) # weight for gradual reduction of certain rewards
 
-        is_moving = 1.0 if self.simulator.use_moving_target else 0.0
+        reward += 1 * (self.last_distance - distance_to_target)             # reward reducing distance
+        reward -= 0.2 * distance_to_target                                  # distance to target negative
+        reward -= (0.05 + 0.15*w) * abs(nu[1])                              # negative sway to prevent sharp turns, keep low in case of circular
+        reward += (1.0 - w) * 0.2 * np.cos(heading_error)                   # heading reward matters more when further away
+        reward -= w * 0.1 * abs(nu[5])                                      # yaw rate penalty matters more when close
 
-        # heading reward when further away from target
-        reward += (1.0 - w) * 0.5 * np.cos(heading_error)
 
-        # for station-keeping
-        reward -= w * (1.0 - is_moving) * (1.0*abs(nu[0]) + 1.0*abs(nu[1]) + 0.8*abs(nu[5]))
-
-        # reduce oscillation
-        reward -= w * is_moving * (0.6*abs(nu[3]) + 0.6*abs(nu[5]))
-
-        # smooth actuation close to target
-        reward -= w * 0.02 * (abs(tau_X) + abs(tau_N))
-
-        self.last_distance = distance_to_target
-        '''
-        if self.simulator.circular_target:
-            reward -= 0.1 * abs(nu[5])
-        else:
-            reward -= 0.1 * distance_to_target
-            reward += 0.5 * np.cos(heading_error)
-            reward -= 0.2 * abs(nu[1])
-            reward -= 0.1 * abs(nu[5])
 
         self.last_distance = distance_to_target
 
-
-        if distance_to_target < self.simulator.surge_setpoint:
-            reward += 5.0 # test different here (oscillating at circular)
-        '''
+        # large reward for close
+        if distance_to_target <= self.simulator.surge_setpoint:
+            reward += 10.0 # test different here (oscillating at circular)
+        
 
         return obs, reward, terminated, truncated, info
 
@@ -359,6 +355,8 @@ class OtterEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
 
+        # check if hold_time reaches required 10s
+        self.last_hold_success = (self.hold_time >= self.hold_time_required)
 
         #  store last metrics 
         if self.current_step > 0:
@@ -462,6 +460,8 @@ class OtterEnv(gym.Env):
         self.yawHistory = []
         self.distanceHistory = []
         self.headingErrorHistory = []
+        # reset hold_time
+        self.hold_time = 0.0
 
         eta0 = self.simulator.eta.copy()
         nu0  = self.simulator.nu.copy()
@@ -546,7 +546,35 @@ class CallBackLog(BaseCallback):
     def return_log(self):
         return self.IAE_distance_history, self.IAE_heading_history
 
+# callback to stop if usv tracks above target for 10s over 95% of last 200 episodes
+class StopOnSuccessRate(BaseCallback):
+    def __init__(self, window_size=200, threshold=0.95, verbose=1):
+        super().__init__(verbose)
+        self.window_size = window_size
+        self.threshold = threshold
+        self.history = deque(maxlen=window_size)
 
+    def _on_step(self) -> bool:
+        # called every environment step
+        for i, done in enumerate(self.locals["dones"]):
+            if done:
+                # did that episode satisfy hold condition?
+                success = self.training_env.get_attr("last_hold_success", i)[0]
+                self.history.append(1 if success else 0)
+
+                # only evaluate once we have enough episodes
+                if len(self.history) == self.window_size:
+                    rate = sum(self.history) / self.window_size
+
+                    if self.verbose:
+                        print(f"[StopCheck] success rate last {self.window_size}: {rate:.3f}")
+
+                    if rate >= self.threshold:
+                        print("Success-rate criterion met. Stopping training.")
+                        return False  # stops learn()
+
+        return True
+    
 if __name__ == "__main__":
 
     print(f"Using device: {device}")
@@ -582,11 +610,11 @@ if __name__ == "__main__":
 
         print("\nTraining model: \n")
         IAE_callback = CallBackLog(verbose=1)
-
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1)
         try:
             model.learn(
                 total_timesteps=training_timesteps,
-                callback=IAE_callback,
+                callback=[IAE_callback, stop_callback],
             )
         except KeyboardInterrupt:
             print("\nKeyboardInterrupt detected. Saving checkpoint before exiting...")
@@ -594,7 +622,7 @@ if __name__ == "__main__":
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
 
-            # Add this line:
+            # Add iae to CSV log
             append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
 
             print("Checkpoint saved. Exiting.")

@@ -32,7 +32,7 @@ from logs.IO import log_to_csv, log_params as io_log_params
 import csv
 import time
 
-# Use cpu for PPO
+# Use cpu since bottleneck is simulation dynamics, not grapical
 device = torch.device("cpu")
 print(f"Using device: {device}")
 
@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 1000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 100000                                                                             # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -74,6 +74,7 @@ CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_station.zip")   
 CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize_station.pkl")
 FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
 FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
+
 
 otter = Otter_api.otter()
 
@@ -134,14 +135,17 @@ class OtterEnv(gym.Env):
         self.target_arc_length = 0
         self.prev_tau_X = 0
 
-        # requirements for finished learning
+        # callback function for finished learning
         self.hold_radius = 0.2          # meters
         self.hold_time_required = 10.0  # seconds
         self.hold_time = 0.0            # accumulate within radius
         self.last_hold_success = False  # stored at end of episode
 
+        #used for observation/action
         self.Umax = 6 * 0.5144
-        self.max_force = 200
+        self.Rmax = 2                   # Just a chosen relative value for normalization 2rad/s
+        self.max_force = 150            
+        self.last_distance = 0
 
         self.simData = []
         self.targetData = []
@@ -175,15 +179,18 @@ class OtterEnv(gym.Env):
         self.initial_target = list(self.simulator.moving_target)
         self.has_plotted = False
 
-        # min/max distance to target, angle to target, surge/sway velocity 
-        # - potentially add: yaw-rate nu[5], heading error, closing speed d_dot, target velocity (must be function), previous action (less chatter, maybe more smooth)
-        self.observation_space = Box(low=np.array([-1,
-                                                   -np.pi,
-                                                   -1,
-                                                   -1],
+        # normalized values
+        self.observation_space = Box(low=np.array([-1,                   # distance to target
+                                                   -1,                   # heading error
+                                                   -1,                   # surge velocity
+                                                   -1,                   # sway velocity
+                                                   -1,                   # yaw rate
+                                                   -1],                  # target error rate of change (see third order traj ref) (d_dot) 
                                                   dtype=np.float32),
                                      high=np.array([1,
-                                                    np.pi,
+                                                    1,
+                                                    1,
+                                                    1,
                                                     1,
                                                     1],
                                                    dtype=np.float32))
@@ -199,7 +206,8 @@ class OtterEnv(gym.Env):
     def step(self, action):
 
         self.current_step += 1
-        truncated_count = 0
+        truncated_count = 0         
+        prev_distance = self.last_distance
 
         # Chooses action which are passed to the simulator at current sampletime
         tau_X, tau_N = action
@@ -208,7 +216,11 @@ class OtterEnv(gym.Env):
             self.otter,
             tau_X,
             tau_N
-        )
+        )   
+
+        #closing speed
+        d_dot = (prev_distance - distance_to_target) / self.sampletime
+
         self.metrics.update(
             distance_to_target=distance_to_target,
             heading_error=heading_error,
@@ -253,17 +265,25 @@ class OtterEnv(gym.Env):
             r = float(getattr(self.simulator, "radius", radius))
             normalized_distance = np.clip(distance_to_target / r, -1.0, 1.0)
         else:
-            normalized_distance = np.tanh(distance_to_target / max_target_delta)
+            normalized_distance = np.tanh(distance_to_target / max_target_delta)    
 
-        
-        obs = np.array([normalized_distance,
-                        heading_error,
-                        np.clip(nu[0] / self.Umax, -1.0, 1.0),  # surge velocity normalized
-                        np.clip(nu[1] / self.Umax, -1.0, 1.0),  # sway velocity normalized
-                        ], dtype=np.float32)
 
-        # Determine target deltas for episode termination
+        obs = np.array([
+            normalized_distance,                         # distance normalized
+            heading_error / np.pi,                       # heading normalized
+            np.clip(nu[0] / self.Umax, -1.0, 1.0),       # surge velocity normalized
+            np.clip(nu[1] / self.Umax, -1.0, 1.0),       # sway velocity normalized
+            np.clip(nu[5] / self.Rmax, -1.0, 1.0),       # yaw rate normalized
+            np.clip(d_dot / self.Umax, -1.0, 1.0)        # closing speed normalized
+        ], dtype=np.float32)
+
+        # Determine target deltas for episode termination 
         episode_time = self.current_step * self.sampletime
+
+        ''' 
+        currently reset at start of steps, can be removed or use later? useless for time based ml?
+        '''
+
         truncated = episode_time >= max_episode_time
         truncated_count += 1
         if truncated_count % 100 == 0:
@@ -303,39 +323,54 @@ class OtterEnv(gym.Env):
                     filename="sim_log_DRL.csv",
                     verbose=True)
 
-        if not hasattr(self, 'last_distance'):
-            self.last_distance = distance_to_target
 
         '''
         Reward handling 
+            d_dot = (prev_distance - distance_to_target) / self.sampletime  
+            u = nu[0]
+            v = nu[1]
+            r = nu[5]
+            e = heading_error  # already wrapped
+            d = distance_to_target
         '''
 
-        reward = 0
+        reward = 0.0
         terminated = truncated
         info = {}
 
-        d = distance_to_target
-        d0 = 5.0   # start of "close range" (meters)
-        d1 = 0.5   # docking radius (meters)
+        d, u, v, r = distance_to_target, nu[0], nu[1], nu[5] 
+        # d_dot = (prev_distance - d) / self.sampletime
 
-        proximity = np.clip((d0 - d) / (d0 - d1), 0.0, 1.0)
+        # change based on actual UOWC system performance 
+        d_opt = 0.1 # optimal tracking radius
+        d_acc = 1.0 # acceptable tracking radius
 
-        #d0 = 1 # distance where behaviour should change - test different, around 2-4x "over"
-        w = np.exp(-(distance_to_target / d0)**2) # weight for gradual reduction of certain rewards
+        # inside acceptable range
+        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)   # normalized to 1 when exactly above
+        outside_range = 1.0 - in_range                      # 0 when close, 1 at boundary+
+        w = outside_range**2   # weight decreases when closer to target     
 
-        reward += 1 * (self.last_distance - distance_to_target)             # reward reducing distance
-        reward -= 0.2 * distance_to_target                                  # distance to target negative
-        reward -= (0.05 + 0.15*w) * abs(nu[1])                              # negative sway to prevent sharp turns, keep low in case of circular
-        reward += (1.0 - w) * 0.2 * np.cos(heading_error)                   # heading reward matters more when further away
-        reward -= w * 0.1 * abs(nu[5])                                      # yaw rate penalty matters more when close
+        # Move toward target when outside range
+        reward += 1.0 * outside_range * (prev_distance - d)
 
+        # Prefer being inside acceptable range
+        reward += 0.5 * in_range
 
+        # Prefer the optimal distance (0.1)
+        reward -= 2.0 * ((d - d_opt) / d_acc)**2
 
-        self.last_distance = distance_to_target
+        # Prevent overshoot when close
+        reward -= 0.6 * w * abs(d_dot)
 
-        # large reward for close
-        if distance_to_target <= self.simulator.surge_setpoint:
-            reward += 10.0 # test different here (oscillating at circular)
+        # slow and stable when close
+        reward -= 0.2 * w * abs(u)
+        reward -= 0.2 * w * abs(v)
+        reward -= 0.15 * w * abs(r)
+
+        # weak heading guidance when far away
+        reward += 0.05 * outside_range * np.cos(heading_error)
+
+        self.last_distance = float(distance_to_target)
         
 
         return obs, reward, terminated, truncated, info
@@ -436,7 +471,7 @@ class OtterEnv(gym.Env):
                 r_min = 5.0
                 r_max = float(getattr(self.simulator, "radius", radius))
             else:
-                r_min, r_max = -25.0, 25.0
+                r_min, r_max = -15.0, 15.0          
 
             alpha = rng.uniform(-np.pi, np.pi)      # randomize direction from target
             r = rng.uniform(r_min, r_max)           # randomize distance to target
@@ -458,9 +493,10 @@ class OtterEnv(gym.Env):
 
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)
-
+        
         #  reset simulator
         distance_to_target, heading_error, nu = self.simulator.reset_simulation()
+        self.last_distance = distance_to_target
 
         # clear histories 
         self.simData = []
@@ -476,6 +512,7 @@ class OtterEnv(gym.Env):
         nu0  = self.simulator.nu.copy()
         u0   = self.simulator.u_actual.copy()
         commands0 = np.array([0.0, 0.0])   # no control before first step
+        d_dot = 0
 
         full_state0 = np.hstack([eta0, nu0, commands0, u0])
         self.simData.append(full_state0)
@@ -492,11 +529,14 @@ class OtterEnv(gym.Env):
         else:
             normalized_distance = np.tanh(distance_to_target / max_target_delta)  
 
+
         obs = np.array([
-            normalized_distance,
-            heading_error,
-            np.clip(nu[0] / self.Umax, -1.0, 1.0),
-            np.clip(nu[1] / self.Umax, -1.0, 1.0),
+            normalized_distance,                         # distance normalized
+            heading_error / np.pi,                       # heading normalized
+            np.clip(nu[0] / self.Umax, -1.0, 1.0),       # surge velocity normalized
+            np.clip(nu[1] / self.Umax, -1.0, 1.0),       # sway velocity normalized
+            np.clip(nu[5] / self.Rmax, -1.0, 1.0),       # yaw rate normalized
+            np.clip(d_dot / self.Umax, -1.0, 1.0)        # closing speed normalized
         ], dtype=np.float32)
 
         info = {}
@@ -562,6 +602,7 @@ class StopOnSuccessRate(BaseCallback):
         self.window_size = window_size
         self.threshold = threshold
         self.history = deque(maxlen=window_size)
+        self.completed = False
 
     def _on_step(self) -> bool:
 
@@ -579,6 +620,7 @@ class StopOnSuccessRate(BaseCallback):
                         print(f"[StopCheck] success rate last {self.window_size}: {rate:.3f}")
 
                     if rate >= self.threshold:
+                        self.completed = True
                         print("Success-rate criterion met. Stopping training.")
                         return False  # stops learn()
 
@@ -590,6 +632,9 @@ if __name__ == "__main__":
 
     n_envs = 8
 
+    print("\n\n\n\n##################################################################")
+    print("\n ENSURE CORRECT PATHS FOR CHECKPOINTS TO PREVENT OVERRIDING FIELES\n")
+    print("##################################################################")
     mode = int(input("\n\nChoose '1' for model training or '2' to run saved model: "))
     if mode == 1:
 
@@ -601,7 +646,8 @@ if __name__ == "__main__":
             env = VecNormalize.load(CHECKPOINT_VECNORM, env)
             model = PPO.load(CHECKPOINT_MODEL, env=env, device="cpu")
         else:
-            env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+            env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.0) # changed to not normalized rewards (better with current design?)
+            ''' original from previous, new uses relu, slower learning etc.
             model = PPO(
                 MlpPolicy,
                 env,
@@ -609,38 +655,81 @@ if __name__ == "__main__":
                 device="cpu",
                 normalize_advantage=True,
                 gae_lambda=0.98,
-                learning_rate=0.001,
+                learning_rate=0.0002,
                 clip_range=0.2,
                 n_steps=4096,
                 ent_coef=0.01,
                 target_kl=None,
                 policy_kwargs=dict(activation_fn=nn.Tanh),
             )
+            '''
+            model = PPO(
+                "MlpPolicy",
+                env,
+                
+                # stability settings    
+                learning_rate=2e-4,   # 1e-4 stable but prob too slow
+                clip_range=0.2,       # Default PPO
+                target_kl=0.02,       # Prevent large policy changes
+
+                # GAE & rollout settings
+                gae_lambda=0.98,      # advantage estimation
+                n_steps=4096,         # larger>more stable
+                batch_size=512,       # Good balance for large rollouts
+                n_epochs=10,          # Standard PPO setting
+
+
+                # Exploration control
+                ent_coef=0.002,       # larger more = exploration less stable
+
+
+                normalize_advantage=True,
+
+
+                # Network architecture (ppo actor, mlp critic)
+                policy_kwargs=dict(
+                    activation_fn=nn.ReLU,  # standard, fastest (action is standard tanh still)
+                    net_arch=dict(
+                        pi=[64, 64],        # actor
+                        vf=[128, 128]       # critic
+                    )
+                ),
+
+                verbose=1,
+                device="cpu"  
+            )
 
         print("\nTraining model: \n")
         IAE_callback = CallBackLog(verbose=1)
         stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1)
+        interrupted = False
+
         try:
             model.learn(
                 total_timesteps=training_timesteps,
                 callback=[IAE_callback, stop_callback],
             )
         except KeyboardInterrupt:
-            print("\nKeyboardInterrupt detected. Saving checkpoint before exiting...")
+            interrupted = True
+            print("\nInterrupted. Will save checkpoint.")
+        finally:
+            # always save checkpoint
+            print("\nCompleted total timesteps: saving checkpoint")
             model.save(CHECKPOINT_MODEL)
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
 
-            # Add iae to CSV log
             append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
 
-            print("Checkpoint saved. Exiting.")
-            sys.exit(0)
+            # save to final if goal reached
+            if stop_callback.completed and not interrupted:
+                print("\n Goal reached, saving final model")
+                model.save(FINAL_MODEL)
+                if isinstance(env, VecNormalize):
+                    env.save(FINAL_VECNORM)
 
-        # Final save
-        model.save(FINAL_MODEL)
-        if isinstance(env, VecNormalize):
-            env.save(FINAL_VECNORM)
+        if interrupted:
+            sys.exit(0)
 
 
     elif mode == 2:

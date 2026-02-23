@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 1000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 10                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -97,23 +97,41 @@ otter.dimU = len(otter.controls)
 
 # used to log IAE over several training sessions
 def append_iae_training_progress(csv_path: str, iae_callback):
-    # pull callback
     iae_dist, iae_head = iae_callback.return_log()
     n = min(len(iae_dist), len(iae_head))
     if n == 0:
         print(f"IAE CSV: No episodes logged yet; nothing to write to {csv_path}")
         return
 
+    # last episode number in file
+    start_episode = 1
+    if os.path.exists(csv_path):
+        try:
+            with open(csv_path, "r") as f:
+                rows = list(csv.reader(f))
+                if len(rows) > 1:  # header + at least one data row
+                    last_row = rows[-1]
+                    start_episode = int(last_row[1]) + 1
+        except Exception:
+            start_episode = 1
+
+    # append new
     file_exists = os.path.exists(csv_path)
     with open(csv_path, "a", newline="") as f:
         w = csv.writer(f)
+
         if not file_exists:
             w.writerow(["unix_time", "episode", "IAE_distance", "IAE_heading"])
-        # Append all stored episodes
-        for ep in range(n):
-            w.writerow([int(time.time()), ep + 1, float(iae_dist[ep]), float(iae_head[ep])])
 
-    print(f"IAE CSV: Appended {n} episodes to {csv_path}")
+        for i in range(n):
+            w.writerow([
+                int(time.time()),
+                start_episode + i,
+                float(iae_dist[i]),
+                float(iae_head[i])
+            ])
+
+    print(f"IAE CSV: Appended {n} episodes to {csv_path} (starting from {start_episode})")
 
 class OtterEnv(gym.Env):
     def __init__(self, simulator, otter):
@@ -206,6 +224,8 @@ class OtterEnv(gym.Env):
     def step(self, action):
 
         self.current_step += 1
+        
+
         truncated_count = 0         
         prev_distance = self.last_distance
 
@@ -342,34 +362,43 @@ class OtterEnv(gym.Env):
         # d_dot = (prev_distance - d) / self.sampletime
 
         # change based on actual UOWC system performance 
-        d_opt = 0.1 # optimal tracking radius
-        d_acc = 1.0 # acceptable tracking radius
+        d_opt = 0.1
+        d_acc = 1.0
 
-        # inside acceptable range
-        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)   # normalized to 1 when exactly above
-        outside_range = 1.0 - in_range                      # 0 when close, 1 at boundary+
-        w = outside_range**2   # weight decreases when closer to target     
+        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)   # 1 when d=0, 0 when d>=d_acc
+        outside_range = 1.0 - in_range                      # scaling by range
+        w_far = outside_range**2                            # weightstrong when far
+        w_close = in_range**2                               # weight strong when close
 
-        # Move toward target when outside range
+        # Approach shaping when outside closing range
         reward += 1.0 * outside_range * (prev_distance - d)
 
         # Prefer being inside acceptable range
         reward += 0.5 * in_range
 
-        # Prefer the optimal distance (0.1)
+        # Prefer optimal distance - penalize deviation from d_opt
         reward -= 2.0 * ((d - d_opt) / d_acc)**2
 
-        # Prevent overshoot when close
-        reward -= 0.6 * w * abs(d_dot)
+        # Prevent overshoot near target 
+        reward -= 0.6 * w_close * abs(d_dot)
 
         # slow and stable when close
-        reward -= 0.2 * w * abs(u)
-        reward -= 0.2 * w * abs(v)
-        reward -= 0.15 * w * abs(r)
+        reward -= 0.2  * w_close * abs(u)
+        reward -= 0.05 * w_close * abs(v)   # keep sway penalty smaller if circular tracking matters
+        reward -= 0.15 * w_close * abs(r)
 
         # weak heading guidance when far away
         reward += 0.05 * outside_range * np.cos(heading_error)
 
+        # Continuous hold reward when in range
+        t_short = self.hold_time_required / 5.0
+        t_long  = self.hold_time_required
+
+        hold_ratio_short = np.clip((self.hold_time - t_short) / max(t_short, 1e-6), 0.0, 1.0)
+        hold_ratio_long  = np.clip(self.hold_time / max(t_long,  1e-6), 0.0, 1.0)
+
+        reward += in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)
+            
         self.last_distance = float(distance_to_target)
         
 
@@ -382,7 +411,7 @@ class OtterEnv(gym.Env):
         simTime_list = self.simTime if len(self.simTime) > 1 else self.last_sim_time
         yaw_list = self.yawHistory if len(self.yawHistory) > 1 else self.last_yaw_history
 
-        # convert to arrays
+        # convert
         simData = np.array(simData_list)
         targetData = np.array(targetData_list)
         simTime = np.array(simTime_list)

@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 100000                                                                             # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 1000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -669,11 +669,11 @@ if __name__ == "__main__":
                 
                 # stability settings    
                 learning_rate=2e-4,   # 1e-4 stable but prob too slow
-                clip_range=0.2,       # Default PPO
-                target_kl=0.02,       # Prevent large policy changes
+                clip_range=0.2,       # 0.2 default 
+                target_kl=0.02,       # prevent large policy changes
 
                 # GAE & rollout settings
-                gae_lambda=0.98,      # advantage estimation
+                gae_lambda=0.98,      # advantage estimation 
                 n_steps=4096,         # larger>more stable
                 batch_size=512,       # Good balance for large rollouts
                 n_epochs=10,          # Standard PPO setting
@@ -719,7 +719,6 @@ if __name__ == "__main__":
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
 
-            append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
 
             # save to final if goal reached
             if stop_callback.completed and not interrupted:

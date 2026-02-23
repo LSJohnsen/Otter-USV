@@ -175,7 +175,8 @@ class OtterEnv(gym.Env):
         self.initial_target = list(self.simulator.moving_target)
         self.has_plotted = False
 
-        # min/max distance to target, angle to target, surge/sway velocity
+        # min/max distance to target, angle to target, surge/sway velocity 
+        # - potentially add: yaw-rate nu[5], heading error, closing speed d_dot, target velocity (must be function), previous action (less chatter, maybe more smooth)
         self.observation_space = Box(low=np.array([-1,
                                                    -np.pi,
                                                    -1,
@@ -305,13 +306,21 @@ class OtterEnv(gym.Env):
         if not hasattr(self, 'last_distance'):
             self.last_distance = distance_to_target
 
-        # Reward handling
+        '''
+        Reward handling 
+        '''
+
         reward = 0
         terminated = truncated
         info = {}
 
+        d = distance_to_target
+        d0 = 5.0   # start of "close range" (meters)
+        d1 = 0.5   # docking radius (meters)
 
-        d0 = 1 # distance where behaviour should change - test different, around 2-4x "over"
+        proximity = np.clip((d0 - d) / (d0 - d1), 0.0, 1.0)
+
+        #d0 = 1 # distance where behaviour should change - test different, around 2-4x "over"
         w = np.exp(-(distance_to_target / d0)**2) # weight for gradual reduction of certain rewards
 
         reward += 1 * (self.last_distance - distance_to_target)             # reward reducing distance
@@ -427,7 +436,7 @@ class OtterEnv(gym.Env):
                 r_min = 5.0
                 r_max = float(getattr(self.simulator, "radius", radius))
             else:
-                r_min, r_max = 5.0, 50.0
+                r_min, r_max = -25.0, 25.0
 
             alpha = rng.uniform(-np.pi, np.pi)      # randomize direction from target
             r = rng.uniform(r_min, r_max)           # randomize distance to target
@@ -546,7 +555,7 @@ class CallBackLog(BaseCallback):
     def return_log(self):
         return self.IAE_distance_history, self.IAE_heading_history
 
-# callback to stop if usv tracks above target for 10s over 95% of last 200 episodes
+# stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
     def __init__(self, window_size=200, threshold=0.95, verbose=1):
         super().__init__(verbose)
@@ -555,14 +564,14 @@ class StopOnSuccessRate(BaseCallback):
         self.history = deque(maxlen=window_size)
 
     def _on_step(self) -> bool:
-        # called every environment step
+
         for i, done in enumerate(self.locals["dones"]):
             if done:
-                # did that episode satisfy hold condition?
+                # maintained objective check
                 success = self.training_env.get_attr("last_hold_success", i)[0]
                 self.history.append(1 if success else 0)
 
-                # only evaluate once we have enough episodes
+                # dont eval before actually 200ep completed
                 if len(self.history) == self.window_size:
                     rate = sum(self.history) / self.window_size
 

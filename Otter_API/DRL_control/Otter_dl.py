@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 10                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 2000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -109,7 +109,7 @@ def append_iae_training_progress(csv_path: str, iae_callback):
         try:
             with open(csv_path, "r") as f:
                 rows = list(csv.reader(f))
-                if len(rows) > 1:  # header + at least one data row
+                if len(rows) > 1: 
                     last_row = rows[-1]
                     start_episode = int(last_row[1]) + 1
         except Exception:
@@ -398,6 +398,8 @@ class OtterEnv(gym.Env):
         hold_ratio_long  = np.clip(self.hold_time / max(t_long,  1e-6), 0.0, 1.0)
 
         reward += in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)
+
+        reward *= 0.01 #reduce size for smaller diff, remove if turning on normalization
             
         self.last_distance = float(distance_to_target)
         
@@ -626,7 +628,7 @@ class CallBackLog(BaseCallback):
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.95, verbose=1):
+    def __init__(self, window_size=200, threshold=0.99, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold
@@ -641,7 +643,7 @@ class StopOnSuccessRate(BaseCallback):
                 success = self.training_env.get_attr("last_hold_success", i)[0]
                 self.history.append(1 if success else 0)
 
-                # dont eval before actually 200ep completed
+                # dont eval before 200ep completed
                 if len(self.history) == self.window_size:
                     rate = sum(self.history) / self.window_size
 
@@ -697,7 +699,7 @@ if __name__ == "__main__":
                 env,
                 
                 # stability settings    
-                learning_rate=2e-4,   # 1e-4 stable but prob too slow
+                learning_rate=0.0004,   # 1e-4 stable but prob too slow
                 clip_range=0.2,       # 0.2 default 
                 target_kl=0.02,       # prevent large policy changes
 
@@ -709,13 +711,13 @@ if __name__ == "__main__":
 
 
                 # Exploration control
-                ent_coef=0.002,       # larger more = exploration less stable
-
+                ent_coef=0.005,       # larger more = exploration less stable
+                vf_coef=0.1,        # critic doesn't drown actor=
 
                 normalize_advantage=True,
 
 
-                # Network architecture (ppo actor, mlp critic)
+                # Network architecture
                 policy_kwargs=dict(
                     activation_fn=nn.ReLU,  # standard, fastest (action is standard tanh still)
                     net_arch=dict(
@@ -730,7 +732,7 @@ if __name__ == "__main__":
 
         print("\nTraining model: \n")
         IAE_callback = CallBackLog(verbose=1)
-        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1)
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.99, verbose=1) # threshold = % of window size required to be complete, modify for relevance
         interrupted = False
 
         try:
@@ -741,6 +743,7 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             interrupted = True
             print("\nInterrupted. Will save checkpoint.")
+            append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
         finally:
             # always save checkpoint
             print("\nCompleted total timesteps: saving checkpoint")

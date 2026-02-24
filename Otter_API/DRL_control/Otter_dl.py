@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 5000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 10000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -138,12 +138,11 @@ class OtterEnv(gym.Env):
 
         self.simulator = simulator
         self.otter = otter
-        self.path_modes = ["circle", "line", "stationary"] 
-        self.path_mode = "circle"
+
 
         # Overwrite when training one at a time. station->line->all three
-        self.path_modes = ["stationary"] 
-        self.path_mode = "stationary" 
+        self.path_modes = ["line", "stationary"] # line, stationary, circle
+
 
         self.sampletime = 0.1  # iteration updates
         self.episode_duration = 400000  # no. simulation samples (truncates at distances, just ensure not too small)
@@ -151,6 +150,7 @@ class OtterEnv(gym.Env):
         self.current_step = 0
         self.target_arc_length = 0
         self.prev_tau_X = 0
+        self.prev_action = np.zeros(2, dtype=float)
 
         # callback function for finished learning
         self.hold_radius = 0.2          # meters
@@ -227,7 +227,7 @@ class OtterEnv(gym.Env):
 
         truncated_count = 0         
         prev_distance = self.last_distance
-
+    
         # Chooses action which are passed to the simulator at current sampletime
         tau_X, tau_N = action
         eta, nu, target, distance_to_target, heading_error, u_actual = self.simulator.simulate_step(
@@ -357,17 +357,18 @@ class OtterEnv(gym.Env):
         terminated = truncated
         info = {}
 
-        d, u, v, r = distance_to_target, nu[0], nu[1], nu[5] 
-        # d_dot = (prev_distance - d) / self.sampletime
+        d, u, v, r = distance_to_target, nu[0], nu[1], nu[5]
 
-        # change based on actual UOWC system performance 
+        # distance derivative (for overshoot damping)
+        d_dot = (d - self.last_distance) / self.sampletime
+
         d_opt = 0.1
         d_acc = 1.0
 
-        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)   # 1 when d=0, 0 when d>=d_acc
-        outside_range = 1.0 - in_range                      # scaling by range
-        w_far = outside_range**2                            # weightstrong when far
-        w_close = in_range**2                               # weight strong when close
+        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)
+        outside_range = 1.0 - in_range
+        w_far = outside_range**2
+        w_close = in_range**2
 
         # Approach shaping when outside closing range
         reward += 1.0 * outside_range * (prev_distance - d)
@@ -378,16 +379,21 @@ class OtterEnv(gym.Env):
         # Prefer optimal distance - penalize deviation from d_opt
         reward -= 2.0 * ((d - d_opt) / d_acc)**2
 
-        # Prevent overshoot near target 
+        # Prevent overshoot near target
         reward -= 0.6 * w_close * abs(d_dot)
 
         # slow and stable when close
         reward -= 0.2  * w_close * abs(u)
-        reward -= 0.05 * w_close * abs(v)   # keep sway penalty smaller if circular tracking matters
-        reward -= 0.15 * w_close * abs(r)
+        reward -= 0.12 * w_close * abs(v)
+        reward -= 0.30 * w_close * abs(r)
+
+        # action-rate penalty (reduce snap turns / oscillation)
+        da = np.linalg.norm(np.array([tau_X, tau_N], dtype=float) - self.prev_action)
+        reward -= 0.05 * (0.2 + 0.8 * w_close) * da
+        self.prev_action[:] = [tau_X, tau_N]
 
         # weak heading guidance when far away
-        reward += 0.05 * outside_range * np.cos(heading_error)
+        reward += 0.02 * outside_range * np.cos(heading_error)
 
         # Continuous hold reward when in range
         t_short = self.hold_time_required / 5.0
@@ -398,10 +404,10 @@ class OtterEnv(gym.Env):
 
         reward += in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)
 
-        reward *= 0.01 #reduce size for smaller diff, remove if turning on normalization
-            
-        self.last_distance = float(distance_to_target)
-        
+        reward *= 0.01
+
+        self.last_distance = float(d)
+                
 
         return obs, reward, terminated, truncated, info
 
@@ -457,11 +463,16 @@ class OtterEnv(gym.Env):
         self.cum_distance = 0.0
         self.reached_target_time = 0.0
         self.reached_flag = False
+        
 
         # reset moving target & simulator time
         
+        
+        # Determine which routes to train/test on, add route name to path_modes in init and choose probability for each route
         if randomize_path == True:
-            self.path_mode = np.random.choice(self.path_modes)
+            self.path_mode = self.np_random.choice(self.path_modes, p=[0, 1])
+        else:
+            self.path_mode = "stationary"
 
         if self.path_mode == "circle":
             self.simulator.circular_target = True
@@ -486,6 +497,9 @@ class OtterEnv(gym.Env):
             self.simulator.use_moving_target = False
             self.simulator.moving_target_increase = np.array([0.0, 0.0], dtype=float)
 
+        else:
+            raise ValueError(f"Unkown path_mode: {self.path_mode}")
+
         self.simulator.moving_target = self.simulator.moving_target_start.copy()
         self.initial_target = list(self.simulator.moving_target)
 
@@ -501,7 +515,7 @@ class OtterEnv(gym.Env):
                 r_min = 5.0
                 r_max = float(getattr(self.simulator, "radius", radius))
             else:
-                r_min, r_max = -15.0, 15.0          
+                r_min, r_max = -25.0, 25.0          
 
             alpha = rng.uniform(-np.pi, np.pi)      # randomize direction from target
             r = rng.uniform(r_min, r_max)           # randomize distance to target
@@ -523,6 +537,7 @@ class OtterEnv(gym.Env):
 
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)
+        self.prev_action[:] = 0.0
         
         #  reset simulator
         distance_to_target, heading_error, nu = self.simulator.reset_simulation()

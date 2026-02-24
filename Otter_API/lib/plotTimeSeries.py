@@ -424,6 +424,10 @@ def plotYaw(simTime, simData, figNo):
 
 
 def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="test_path"):
+    
+    
+    n_marks   = 5 # how many USV/target marks 
+    
     targetData = targetData[1:-1]
 
     n_common = min(len(simData), len(targetData), len(simTime))
@@ -436,7 +440,7 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
 
     t_norm = ((simTime - simTime[0]) / (simTime[-1] - simTime[0])).ravel()
 
-    n_marks   = 15
+    
     mark_idx  = np.linspace(0, n_common - 1, n_marks + 1, dtype=int)
     mark_cols = t_norm[mark_idx]
     psi_marks = yaw[mark_idx]
@@ -494,7 +498,7 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
         linewidth=0.6,
         zorder=4,
     )
-    pc.set_facecolor(cmap(norm(mark_cols)))   # <- add this line
+    pc.set_facecolor(cmap(norm(mark_cols)))   
 
     ax.add_collection(pc_target)
     ax.add_collection(pc)

@@ -42,14 +42,14 @@ use_target_coordinates = False                                                  
 use_moving_target = True                                                                                # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
-moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
+moving_target_start = [0, 0]                                                                            # Start point of the moving target if use_moving_target is set to True
 moving_target_increase = [-0.5, 0.0]                                                                    # Movement of the moving target each second                                                                                  # How many meters target should move each simulation before truncation
 target_radius = 0.2                                                                                     # Radius from center of target that counts as target reached
 verbose = True                                                                                          # Enable verbose printing
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 2000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 5000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -91,7 +91,6 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             radius)
 
 print("initialized otter api and simulator")
-
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
 otter.dimU = len(otter.controls)
 

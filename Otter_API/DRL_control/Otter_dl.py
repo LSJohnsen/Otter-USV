@@ -49,7 +49,7 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 10000000                                                                            # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 100000000                                                                          # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
 start_north = -20 #not used?                                                                            # Target north position from reference point
@@ -158,11 +158,20 @@ class OtterEnv(gym.Env):
         self.hold_time = 0.0            # accumulate within radius
         self.last_hold_success = False  # stored at end of episode
 
-        #used for observation/action
+        #used for observation/action/rewards
         self.Umax = 6 * 0.5144
         self.Rmax = 2                   # Just a chosen relative value for normalization 2rad/s
-        self.max_force = 150            
+        self.tauX_max = 150
+        self.tauN_max = 11         
+        self.max_rad = 0.0
+        self.u_applied = np.zeros(2)
+        self.tau_act = 1.0     
         self.last_distance = 0
+
+        #reward shaping
+        self.prev_cmd = np.zeros(2, dtype=float)
+        self.prev_applied = np.zeros(2, dtype=float)
+
 
         self.simData = []
         self.targetData = []
@@ -221,23 +230,34 @@ class OtterEnv(gym.Env):
                                               dtype=np.float32))
 
     def step(self, action):
-
         self.current_step += 1
-        
-
-        truncated_count = 0         
+        truncated_count = 0
         prev_distance = self.last_distance
-    
-        # Chooses action which are passed to the simulator at current sampletime
-        tau_X, tau_N = action
+
+        # raw acton command
+        tau_cmd = np.array(action, dtype=float)
+
+        # actuator lag 1s discrete time
+        alpha_t = self.sampletime / (self.tau_act + self.sampletime)          
+        self.u_applied = (1 - alpha_t) * self.u_applied + alpha_t * tau_cmd
+
+        # clamp applied tau to physical limits
+        self.u_applied = np.clip(
+            self.u_applied,
+            [-self.tauX_max, -self.tauN_max],
+            [ self.tauX_max,  self.tauN_max],
+            )
+
+        tau_X, tau_N = self.u_applied
+
+        # Simulate with applied (lagged) input
         eta, nu, target, distance_to_target, heading_error, u_actual = self.simulator.simulate_step(
             self.sampletime,
             self.otter,
             tau_X,
             tau_N
-        )   
+        )
 
-        #closing speed
         d_dot = (prev_distance - distance_to_target) / self.sampletime
 
         self.metrics.update(
@@ -247,18 +267,12 @@ class OtterEnv(gym.Env):
             u2=u_actual[1],
             dt=self.sampletime,
         )
-        
 
+        # For state/logging
+        commands = self.u_applied          # what plant got
+        actuals  = u_actual               # what thrusters reported (if that’s what u_actual is)
 
-        commands = np.array([tau_X, tau_N])
-        actuals = u_actual
-        
-
-        # Stack all usv states into sequence of arrays
-        full_state = np.hstack([eta,
-                                nu,
-                                commands,
-                                actuals])
+        full_state = np.hstack([eta, nu, commands, actuals])
         
         # update for training end if enough episodes
         if distance_to_target <= self.hold_radius:
@@ -358,12 +372,19 @@ class OtterEnv(gym.Env):
         info = {}
 
         d, u, v, r = distance_to_target, nu[0], nu[1], nu[5]
+        scale = np.array([self.tauX_max, self.tauN_max], dtype=float)   # control normalization
 
         # distance derivative (for overshoot damping)
         d_dot = (d - self.last_distance) / self.sampletime
 
-        d_opt = 0.1
-        d_acc = 1.0
+        d_opt = 0.1     # optimal distance
+        d_acc = 1.0     # acceptable distance
+
+        # command action weights for tuning
+        k_dcmd = 0.001                      # penalty on how fast command changes
+        k_eff  = 0.0001                     # penalty on control magnitude
+        k_dapp = 0.0                       # penalty on speed of control action changes
+    
 
         in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)
         outside_range = 1.0 - in_range
@@ -387,13 +408,31 @@ class OtterEnv(gym.Env):
         reward -= 0.12 * w_close * abs(v)
         reward -= 0.30 * w_close * abs(r)
 
-        # action-rate penalty (reduce snap turns / oscillation)
-        da = np.linalg.norm(np.array([tau_X, tau_N], dtype=float) - self.prev_action)
-        reward -= 0.05 * (0.2 + 0.8 * w_close) * da
-        self.prev_action[:] = [tau_X, tau_N]
+        
+        # control action penalties 
+        #  rate penalty on command
+        da_cmd = (tau_cmd - self.prev_cmd) / scale
+        reward -= k_dcmd * float(da_cmd @ da_cmd)           # -command_weight * (cmd - cmd(t-1))/tau_max
 
+        if np.allclose(self.prev_cmd, tau_cmd, atol=1e-6):
+            reward += 0.1                                                     # reward for keeping same action, smoothing
+        
+        self.prev_cmd[:] = tau_cmd
+
+        '''
+        # effort penalty on applied 
+        a = tau_cmd / scale                                 # -scale_effort_weight * (applied/max)^2
+        reward -= k_eff * float(a @ a)
+        '''
+        '''
+        # rate penalty on applied
+        da_app = (tau_cmd - self.prev_applied) / scale
+        reward -= k_dapp * float(da_app @ da_app)           # -weight_actual * ((applied-applied(t-1))/max)^2
+        self.prev_applied[:] = tau_cmd
+        '''
         # weak heading guidance when far away
         reward += 0.02 * outside_range * np.cos(heading_error)
+
 
         # Continuous hold reward when in range
         t_short = self.hold_time_required / 5.0
@@ -470,7 +509,7 @@ class OtterEnv(gym.Env):
         
         # Determine which routes to train/test on, add route name to path_modes in init and choose probability for each route
         if randomize_path == True:
-            self.path_mode = self.np_random.choice(self.path_modes, p=[0, 1])
+            self.path_mode = self.np_random.choice(self.path_modes, p=[0.5, 0.5])
         else:
             self.path_mode = "stationary"
 
@@ -538,6 +577,7 @@ class OtterEnv(gym.Env):
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)
         self.prev_action[:] = 0.0
+        self.prev_cmd[:] = 0.0      #does same thing, clean up later
         
         #  reset simulator
         distance_to_target, heading_error, nu = self.simulator.reset_simulation()
@@ -642,7 +682,7 @@ class CallBackLog(BaseCallback):
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.99, verbose=1):
+    def __init__(self, window_size=200, threshold=0.95, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold
@@ -726,7 +766,7 @@ if __name__ == "__main__":
 
                 # Exploration control
                 ent_coef=0.005,       # larger more = exploration less stable
-                vf_coef=0.1,        # critic doesn't drown actor=
+                vf_coef=0.1,            # critic doesn't drown actor=
 
                 normalize_advantage=True,
 
@@ -746,7 +786,7 @@ if __name__ == "__main__":
 
         print("\nTraining model: \n")
         IAE_callback = CallBackLog(verbose=1)
-        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.99, verbose=1) # threshold = % of window size required to be complete, modify for relevance
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1) # threshold = % of window size required to be complete, modify for relevance
         interrupted = False
 
         try:

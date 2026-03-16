@@ -64,6 +64,7 @@ max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
+path_probabilities = [0.2, 0.8, 0]                                                                          # probability of [straight line, stationary, circle] target movement
 
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
@@ -132,6 +133,9 @@ def append_iae_training_progress(csv_path: str, iae_callback):
 
     print(f"IAE CSV: Appended {n} episodes to {csv_path} (starting from {start_episode})")
 
+def wrap_to_pi(angle): 
+    return (angle + np.pi) % (2 * np.pi) - np.pi
+
 class OtterEnv(gym.Env):
     def __init__(self, simulator, otter):
         super().__init__()                                                                               # call gym.env constructor
@@ -141,7 +145,7 @@ class OtterEnv(gym.Env):
 
 
         # Overwrite when training one at a time. station->line->all three
-        self.path_modes = ["line", "stationary"] # line, stationary, circle
+        self.path_modes = ["stationary", "line", "circle"] # line, stationary, circle
 
 
         self.sampletime = 0.1  # iteration updates
@@ -158,17 +162,22 @@ class OtterEnv(gym.Env):
         self.hold_time = 0.0            # accumulate within radius
         self.last_hold_success = False  # stored at end of episode
 
-        #used for observation/action/rewards
+        # used for observation/action/rewards
         self.Umax = 6 * 0.5144
         self.Rmax = 2                   # Just a chosen relative value for normalization 2rad/s
         self.tauX_max = 150
-        self.tauN_max = 11         
+        self.tauN_max = 110         
         self.max_rad = 0.0
         self.u_applied = np.zeros(2)
         self.tau_act = 1.0     
         self.last_distance = 0
+        
+        # target references for heading rewards
+        self.prev_target_pos = None         
+        self.target_heading_ref = 0.0
+        self.stationary_heading_ref = 0.0
 
-        #reward shaping
+        # control action reward shaping
         self.prev_cmd = np.zeros(2, dtype=float)
         self.prev_applied = np.zeros(2, dtype=float)
 
@@ -268,11 +277,21 @@ class OtterEnv(gym.Env):
             dt=self.sampletime,
         )
 
-        # For state/logging
+        # for state/logging
         commands = self.u_applied          # what plant got
         actuals  = u_actual               # what thrusters reported (if that’s what u_actual is)
-
         full_state = np.hstack([eta, nu, commands, actuals])
+
+        # data for target heading rewards
+        target_pos = np.array(self.simulator.moving_target, dtype=float)
+        target_delta = target_pos - self.prev_target_pos
+        target_speed = np.linalg.norm(target_delta) / self.sampletime
+
+        # update target heading if target actually moved 
+        if target_speed > 1e-4:
+            self.target_heading_ref = float(np.arctan2(target_delta[1], target_delta[0]))
+
+        self.prev_target_pos = target_pos.copy()
         
         # update for training end if enough episodes
         if distance_to_target <= self.hold_radius:
@@ -318,7 +337,8 @@ class OtterEnv(gym.Env):
         '''
 
         truncated = episode_time >= max_episode_time
-        truncated_count += 1
+        # redundant atm
+        truncated_count += 1                                                                
         if truncated_count % 100 == 0:
             print(f"[{self.current_step}] Target at {self.simulator.moving_target}, "
                   f"Initial at {self.initial_target}, "
@@ -372,10 +392,9 @@ class OtterEnv(gym.Env):
         info = {}
 
         d, u, v, r = distance_to_target, nu[0], nu[1], nu[5]
+        psi = eta[5]
         scale = np.array([self.tauX_max, self.tauN_max], dtype=float)   # control normalization
 
-        # distance derivative (for overshoot damping)
-        d_dot = (d - self.last_distance) / self.sampletime
 
         d_opt = 0.1     # optimal distance
         d_acc = 1.0     # acceptable distance
@@ -383,22 +402,21 @@ class OtterEnv(gym.Env):
         # command action weights for tuning
         k_dcmd = 0.001                      # penalty on how fast command changes
         k_eff  = 0.0001                     # penalty on control magnitude
-        k_dapp = 0.0                       # penalty on speed of control action changes
+        k_dapp = 0.0                        # penalty on speed of control action changes
     
 
         in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)
         outside_range = 1.0 - in_range
-        w_far = outside_range**2
         w_close = in_range**2
 
         # Approach shaping when outside closing range
-        reward += 1.0 * outside_range * (prev_distance - d)
+        reward += 3.0 * outside_range * (prev_distance - d)
 
         # Prefer being inside acceptable range
-        reward += 0.5 * in_range
+        reward += 1.0 * in_range
 
         # Prefer optimal distance - penalize deviation from d_opt
-        reward -= 2.0 * ((d - d_opt) / d_acc)**2
+        reward -= 5.0 * ((d - d_opt) / d_acc)**2
 
         # Prevent overshoot near target
         reward -= 0.6 * w_close * abs(d_dot)
@@ -414,9 +432,6 @@ class OtterEnv(gym.Env):
         da_cmd = (tau_cmd - self.prev_cmd) / scale
         reward -= k_dcmd * float(da_cmd @ da_cmd)           # -command_weight * (cmd - cmd(t-1))/tau_max
 
-        if np.allclose(self.prev_cmd, tau_cmd, atol=1e-6):
-            reward += 0.1                                                     # reward for keeping same action, smoothing
-        
         self.prev_cmd[:] = tau_cmd
 
         '''
@@ -430,9 +445,35 @@ class OtterEnv(gym.Env):
         reward -= k_dapp * float(da_app @ da_app)           # -weight_actual * ((applied-applied(t-1))/max)^2
         self.prev_applied[:] = tau_cmd
         '''
-        # weak heading guidance when far away
-        reward += 0.02 * outside_range * np.cos(heading_error)
 
+        '''
+        Heading reward structure:
+            if target is moving, reward both los heading and following target trajectory heading
+            if target stationary, reward keeping the same heading as initial los
+        '''
+        if self.simulator.use_moving_target:
+            # LOS heading toward target position
+            psi_los = float(np.arctan2(target_pos[1] - eta[1], target_pos[0] - eta[0]))
+            e_los = wrap_to_pi(psi_los - psi)
+
+            # target trajectory heading
+            e_track = wrap_to_pi(self.target_heading_ref - psi)
+
+            # far away: point toward target
+            reward += 0.2 * outside_range * np.cos(e_los)
+
+            # close: align with target motion
+            reward += 0.3 * in_range * np.cos(e_track)
+
+        else:
+            # fixed heading reference for stationary target
+            e_hold = wrap_to_pi(self.stationary_heading_ref - psi)
+
+            # weak heading guidance while approaching
+            reward += 0.01 * outside_range * np.cos(e_hold)
+
+            # also reward keeping same heading while hovering
+            reward += 0.02 * in_range * np.cos(e_hold)
 
         # Continuous hold reward when in range
         t_short = self.hold_time_required / 5.0
@@ -506,10 +547,10 @@ class OtterEnv(gym.Env):
 
         # reset moving target & simulator time
         
-        
+         
         # Determine which routes to train/test on, add route name to path_modes in init and choose probability for each route
         if randomize_path == True:
-            self.path_mode = self.np_random.choice(self.path_modes, p=[0.5, 0.5])
+            self.path_mode = self.np_random.choice(self.path_modes, p=path_probabilities)
         else:
             self.path_mode = "stationary"
 
@@ -579,6 +620,16 @@ class OtterEnv(gym.Env):
         self.prev_action[:] = 0.0
         self.prev_cmd[:] = 0.0      #does same thing, clean up later
         
+
+        # LOS heading reference for stationary target
+        usv_pos = np.array([x, y], dtype=float)
+        rel = target_pos - usv_pos
+        self.stationary_heading_ref = float(np.arctan2(rel[1], rel[0]))
+
+        # initialize moving-target heading tracking
+        self.prev_target_pos = target_pos.copy()
+        self.target_heading_ref = self.stationary_heading_ref
+
         #  reset simulator
         distance_to_target, heading_error, nu = self.simulator.reset_simulation()
         self.last_distance = distance_to_target
@@ -625,6 +676,8 @@ class OtterEnv(gym.Env):
         ], dtype=np.float32)
 
         info = {}
+
+
         return obs, info
 
 
@@ -682,7 +735,7 @@ class CallBackLog(BaseCallback):
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.95, verbose=1):
+    def __init__(self, window_size=200, threshold=0.80, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold

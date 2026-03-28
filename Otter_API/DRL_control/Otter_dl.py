@@ -559,7 +559,7 @@ class OtterEnv(gym.Env):
         e_v = np.sqrt(e_vx**2 + e_vy**2)
 
         r_vel = in_range * C_v * np.exp(-(e_v**2) / (2 * sigma_v**2))       # reward for maintaining same total velocity as target in world when close
-
+        
         # time penalty
         C_t = 0.001                                                         # small constant penalty per step
         r_time = C_t                                                        # faster convergence

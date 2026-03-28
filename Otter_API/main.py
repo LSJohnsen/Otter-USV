@@ -29,7 +29,7 @@ from logs.IO import log_to_csv
 N = 13333                                                                                               # Number of simulation samples
 sampleTime = 0.02                                                                                       # Simulation time per sample. Usually at 0.02, other values could cause instabillity in the simulation
 use_target_coordinates = False                                                                          # To use coordinates as a target or to use a linear path
-use_moving_target = True                                                                                # To use moving target instead of target list (path following)
+use_moving_target = False                                                                                # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
@@ -57,6 +57,7 @@ BASE_URL = "http://192.168.2.94/"
 URL_GLOBAL   = BASE_URL + "/api/v1/position/global"                                                     
 URL_ACOUSTIC = BASE_URL + "/api/v1/position/acoustic/filtered"
 
+# path options
 start_north = -20                                                                                       # Target north position from referance point
 start_east = -20                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
@@ -121,7 +122,6 @@ numDataPoints = 830                                                             
 FPS = 60                                                                                                # frames per second (animated GIF)
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
 browser = 'chrome'                                                                                      # browser for visualization of animated GIF
-
 
 
 
@@ -340,7 +340,6 @@ def main(option):
                 
             else:
                 live_guidance.ugps_target_tracking(ugps_stop_event)
-
 
 
 if __name__ == "__main__":

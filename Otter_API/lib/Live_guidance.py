@@ -147,59 +147,56 @@ class live_guidance():
 
             time.sleep(0.5)
     
-    # Update USV states 
+    # Update USV states - computes u,v in body from the heading and north/east change
     def current_state(self):
         self.otter.update_values()
-        
-        # raw values if not inf 
+
+        # Raw measurements
         x_raw   = self._confirm_signal("north_from_observer", 0.0)
         y_raw   = self._confirm_signal("east_from_observer", 0.0)
-        psi_raw = self._confirm_signal("current_angle", 0.0)   
+        psi_raw = self._confirm_signal("current_angle", 0.0)
 
-        u_raw   = self._confirm_signal("speed_n", 0.0)
-        v_raw   = self._confirm_signal("speed_e", 0.0)
+        v_n_raw = self._confirm_signal("speed_n", 0.0)   # inertial north velocity
+        v_e_raw = self._confirm_signal("speed_e", 0.0)   # inertial east velocity
         r_raw   = self._confirm_signal("current_yaw_rate", 0.0)
-      
-        state = np.array([x_raw, y_raw, psi_raw, u_raw, v_raw, r_raw])
-        self.last_valid_state = state                
-        
+
+        # Convert inertial velocities to body-frame velocities
+        u_body_raw = math.cos(psi_raw) * v_n_raw + math.sin(psi_raw) * v_e_raw
+        v_body_raw = -math.sin(psi_raw) * v_n_raw + math.cos(psi_raw) * v_e_raw
+
         # Initial state
         if self.last_valid_state is None:
-            state = np.array([x_raw, y_raw, psi_raw, u_raw, v_raw, r_raw])
+            state = np.array([x_raw, y_raw, psi_raw, u_body_raw, v_body_raw, r_raw], dtype=float)
             self.last_valid_state = state
-            return state          
+            return state
 
         x_prev, y_prev, psi_prev, u_prev, v_prev, r_prev = self.last_valid_state
-        # Controller limits
 
-        dt = self.cycletime            # sampling time 
-        u_max = 2.0                    # max surge 
-        r_max = 20.0 * math.pi/180.0   # max yaw 
+        dt = self.cycletime
+        u_max = 2.0
+        r_max = 20.0 * math.pi / 180.0
 
-        max_pos_change = u_max * dt    # Check changes in surge/heading are valid for timestep
-        max_psi_change = r_max * dt   
+        max_pos_change = u_max * dt
+        max_psi_change = r_max * dt
 
         x = self._filter_signal(x_raw, x_prev, difference_limit=max_pos_change)
         y = self._filter_signal(y_raw, y_prev, difference_limit=max_pos_change)
 
-        if psi_raw != psi_prev:
-            psi_difference = (psi_raw - psi_prev + math.pi) % (2*math.pi) - math.pi # [-pi,pi] 
-            psi_new = psi_prev + psi_difference # add difference to new
-            psi = self._filter_signal(psi_new, psi_prev, difference_limit=max_psi_change)
-        else:
-            psi = psi_raw
-        
+        psi_difference = (psi_raw - psi_prev + math.pi) % (2 * math.pi) - math.pi
+        psi_candidate = psi_prev + psi_difference
+        psi = self._filter_signal(psi_candidate, psi_prev, difference_limit=max_psi_change)
 
-        # max 50% velocity change per reading
-        u = self._filter_signal(u_raw, u_prev, relative_limit=0.5) 
-        v = self._filter_signal(v_raw, v_prev, relative_limit=0.5)
+        u_body_raw = math.cos(psi) * v_n_raw + math.sin(psi) * v_e_raw
+        v_body_raw = -math.sin(psi) * v_n_raw + math.cos(psi) * v_e_raw
+
+        # limit change to 50% to avoid deprecated signals 
+        u = self._filter_signal(u_body_raw, u_prev, relative_limit=0.5)
+        v = self._filter_signal(v_body_raw, v_prev, relative_limit=0.5)
         r = self._filter_signal(r_raw, r_prev, relative_limit=0.5)
-        
 
         state = np.array([x, y, psi, u, v, r], dtype=float)
         self.last_valid_state = state
-
-        return state  
+        return state
     
     # UGPS target tracking
     def ugps_target_tracking(self, stop_event, ugps_timeout_s=2, logs_dir="../logs"):
@@ -588,7 +585,7 @@ class live_guidance():
         n_usv = float(self.otter.sorted_values["north_from_observer"])
         e_usv = float(self.otter.sorted_values["east_from_observer"])
 
-        # Update ned 
+        # Update NED target position from GPS if needed
         if ugps:
             if ugps_lat is None or ugps_lon is None:
                 raise ValueError("ugps=True requires ugps_lat and ugps_lon")
@@ -597,39 +594,58 @@ class live_guidance():
             obs_lon = float(self.otter.sorted_values["observer_lon"])
             obs_h   = float(self.otter.sorted_values["observer_height"])
 
-
             if ugps_h is None:
                 ugps_h = obs_h
 
-            n_t, e_t, d_t = pm.geodetic2ned(float(ugps_lat), float(ugps_lon), float(ugps_h),
-                                        obs_lat, obs_lon, obs_h)
+            n_t, e_t, d_t = pm.geodetic2ned(
+                float(ugps_lat), float(ugps_lon), float(ugps_h),
+                obs_lat, obs_lon, obs_h
+            )
             self.target_ne_pos = [float(n_t), float(e_t)]
 
         n_t = float(self.target_ne_pos[0])
         e_t = float(self.target_ne_pos[1])
 
-        # target relative to usv
+        # Current heading first
+        self.current_angle = float(self.otter.sorted_values["current_orientation_3"]) * (math.pi / 180.0)
+
+        # Target relative to USV
         self.north_error = n_t - n_usv
         self.east_error  = e_t - e_usv
         self.distance_to_target = math.hypot(self.north_error, self.east_error)
 
-        if ugps:
-            arrival_radius = 0.5 # meters
-            if self.distance_to_target < self.surge_setpoint:   # or specific with arrival_rad
-                self.north_error = 0.0
-                self.east_error = 0.0
-                self.distance_to_target = 0.0
+        arrival_radius = 0.2
 
-        # heading
-        self.yaw_setpoint = math.atan2(self.east_error, self.north_error)
-        self.current_angle = float(self.otter.sorted_values["current_orientation_3"]) * (math.pi / 180.0)
+        if self.distance_to_target < arrival_radius:
+            self.north_error = 0.0
+            self.east_error = 0.0
+            self.distance_to_target = 0.0
+            self.yaw_setpoint = self.current_angle
+        else:
+            self.yaw_setpoint = math.atan2(self.east_error, self.north_error)
 
-        tau_X = self.surge_PID.calculate_surge(self.surge_setpoint, self.distance_to_target,
-                                            self.yaw_setpoint, self.current_angle)
-        tau_N = self.yaw_PID.calculate_yaw(self.yaw_setpoint, self.current_angle,
-                                        self.surge_setpoint, self.distance_to_target)
+        # Compute wrapped heading error
+        heading_error = (self.yaw_setpoint - self.current_angle + math.pi) % (2 * math.pi) - math.pi
 
-        # saturation
+        tau_X = self.surge_PID.calculate_surge(
+            self.surge_setpoint,
+            self.distance_to_target,
+            self.yaw_setpoint,
+            self.current_angle
+        )
+
+        tau_N = self.yaw_PID.calculate_yaw(
+            self.yaw_setpoint,
+            self.current_angle,
+            self.surge_setpoint,
+            self.distance_to_target
+        )
+
+        # Prevent forward thrust if heading error is too large
+        if abs(heading_error) > math.radians(20):
+            tau_X = 0.0
+
+        # Saturation
         tau_N = max(min(tau_N, self.max_force), -self.max_force)
         remaining_force = self.max_force - abs(tau_N)
         tau_X = max(min(tau_X, remaining_force), -remaining_force)
@@ -637,7 +653,11 @@ class live_guidance():
         return tau_X, tau_N
 
     def calculate_forces_nmpc(self):
-
+        """
+        from nmpc formulation: solve_control(self, init_state, target_reference):
+        init_state: np.array shape (6,)  -> [x, y, psi, u, v, r]
+        target_reference: np.array shape (2,) -> [x_ref, y_ref]
+        """
         init_state = np.asarray(self.current_state(), dtype=float)
         
         if not np.all(np.isfinite(init_state)):
@@ -650,7 +670,7 @@ class live_guidance():
         ], dtype=float)
 
         tau = self.nmpc.solve_control(init_state, target_reference)
-        tau_X, tau_N = float(tau[0]), float(tau[1])
+        tau_X, tau_N = float(tau[0]), float(tau[2])
         return tau_X, tau_N
 
     # get target ned position in live tracking 

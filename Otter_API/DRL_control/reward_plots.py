@@ -38,7 +38,7 @@ def compute_reward_components(
     tauX_max: float,
     tauN_max: float,
     success: bool = False,
-    # tuning parameters from your reward structure
+    # tuning parameters from reward structure
     sigma_p: float = 1.5,
     C_p: float = 1.0,
     sigma_psi: float = 0.6,
@@ -57,7 +57,7 @@ def compute_reward_components(
     alpha_u: float = 0.1,
     final_scale: float = 0.1,
 ) -> dict[str, float]:
-    """Compute each reward component separately using your current reward design."""
+   
     # Distance derivative term used in reward
     d_dot = (d - last_distance) / sampletime  # positive = moving away, negative = closing
 
@@ -166,29 +166,27 @@ def _style_axis(ax: plt.Axes, title: str, xlabel: str, ylabel: str = "Reward val
     ax.legend()  # show legend
 
 
-def plot_reward_vs_heading_error(*, use_moving_target: bool = True) -> None:
-    """Plot heading-related reward terms as a function of heading error."""
-    e_values = np.linspace(-np.pi, np.pi, 400)  # sweep heading error over full range
+def plot_reward_components(*, use_moving_target: bool = True) -> None:
+    e_values = np.linspace(-np.pi, np.pi, 400)
+    r_values = np.linspace(-1.0, 1.0, 400)  # yaw rate range [rad/s]
 
-    r_heading_vals = []  # Gaussian heading reward curve
-    r_heading2_vals = []  # yaw-rate penalty curve
-    total_vals = []  # total reward curve for this slice
+    r_heading_vals = []
 
+    # --- HEADING REWARD vs HEADING ERROR ---
     for e in e_values:
-        # choose psi so that target_heading_ref - psi = e
-        target_heading_ref = 0.0  # fixed reference heading
-        psi = wrap_to_pi(target_heading_ref - e)  # implied vessel heading for desired error
+        target_heading_ref = 0.0
+        psi = wrap_to_pi(target_heading_ref - e)
 
         comps = compute_reward_components(
-            d=0.3,  # near-target condition so heading matters
-            u=0.4 if use_moving_target else 0.0,  # representative surge
+            d=0.3,
+            u=0.4 if use_moving_target else 0.0,
             v=0.0,
-            r=0.3,  # representative yaw rate
+            r=0.3,  # fixed yaw rate
             psi=psi,
-            last_distance=0.31,  # slightly larger previous distance -> closing
+            last_distance=0.31,
             sampletime=0.1,
             target_heading_ref=target_heading_ref,
-            target_pos=(1.0, 0.0),  # target ahead on x-axis
+            target_pos=(1.0, 0.0),
             eta_pos=(0.0, 0.0),
             target_speed=0.4 if use_moving_target else 0.0,
             use_moving_target=use_moving_target,
@@ -201,21 +199,58 @@ def plot_reward_vs_heading_error(*, use_moving_target: bool = True) -> None:
             tauN_max=110.0,
             success=False,
         )
-        r_heading_vals.append(comps["r_heading"])  # store heading reward
-        r_heading2_vals.append(comps["r_heading2"])  # store yaw-rate penalty
-        total_vals.append(comps["total_scaled"])  # store total reward
+        r_heading_vals.append(comps["r_heading"])
 
-    fig, ax = plt.subplots(figsize=(10, 6))  # create figure for heading sweep
-    ax.plot(e_values, r_heading_vals, label="Target heading reward")  # plot heading reward
-    ax.plot(e_values, r_heading2_vals, label="Yaw-rate penalty")  # plot yaw-rate penalty
-    _style_axis(ax, "Heading rewards", "Heading error [rad]")
-    plt.tight_layout()  # improve spacing
-    fig.savefig("heading_reward.pdf", bbox_inches="tight")
-    plt.show()  # display plot
+    # --- YAW-RATE PENALTY vs YAW RATE ---
+    r_heading2_vals = []
+
+    # fix heading error ~ 0 (aligned case → worst-case penalty)
+    target_heading_ref = 0.0
+    psi = 0.0
+
+    for r in r_values:
+        comps = compute_reward_components(
+            d=0.3,
+            u=0.4 if use_moving_target else 0.0,
+            v=0.0,
+            r=r,
+            psi=psi,
+            last_distance=0.31,
+            sampletime=0.1,
+            target_heading_ref=target_heading_ref,
+            target_pos=(1.0, 0.0),
+            eta_pos=(0.0, 0.0),
+            target_speed=0.4 if use_moving_target else 0.0,
+            use_moving_target=use_moving_target,
+            stationary_heading_ref=0.0,
+            hold_time=5.0,
+            hold_time_required=10.0,
+            tau_cmd=(10.0, 4.0),
+            prev_cmd=(9.5, 3.5),
+            tauX_max=150.0,
+            tauN_max=110.0,
+            success=False,
+        )
+        r_heading2_vals.append(comps["r_heading2"])
+
+    # --- PLOT 1: Heading reward ---
+    fig1, ax1 = plt.subplots(figsize=(10, 6))
+    ax1.plot(e_values, r_heading_vals, label="Heading reward")
+    _style_axis(ax1, "Heading reward", "Heading error [rad]")
+    ax1.legend()
+    fig1.savefig("heading_reward.pdf", bbox_inches="tight")
+
+    # --- PLOT 2: Yaw-rate penalty ---
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    ax2.plot(r_values, r_heading2_vals, label="Yaw-rate penalty")
+    _style_axis(ax2, "Yaw-rate penalty", "Yaw rate [rad/s]")
+    ax2.legend()
+    fig2.savefig("yaw_rate_penalty.pdf", bbox_inches="tight")
+
+    plt.show()
 
 
 def plot_reward_vs_d_dot() -> None:
-    """Plot the distance-rate reward term as a function of d_dot."""
     d_dot_values = np.linspace(-2.0, 2.0, 400)  # sweep approach/divergence rate
     vals = []  # store r_d_dot values
 
@@ -256,7 +291,6 @@ def plot_reward_vs_d_dot() -> None:
 
 
 def plot_reward_vs_surge_comparison():
-    """Plot stationary and moving-target surge rewards side by side."""
     u_values = np.linspace(-1.0, 2.0, 400)  # sweep surge speed range
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)  # two side-by-side subplots
@@ -303,7 +337,6 @@ def plot_reward_vs_surge_comparison():
     plt.show()  # display plot
 
 def plot_reward_vs_relative_speed() -> None:
-    """Plot the relative-velocity reward as a function of relative speed magnitude."""
     e_v_values = np.linspace(0.0, 2.0, 400)  # sweep relative speed magnitude
     vals = []  # store relative-velocity reward values
 
@@ -345,7 +378,6 @@ def plot_reward_vs_relative_speed() -> None:
 
 
 def plot_reward_vs_hold_time() -> None:
-    """Plot hold reward as a function of accumulated hold time."""
     t_values = np.linspace(0.0, 12.0, 400)  # sweep hold time beyond required hold duration
     vals = []  # store hold reward values
 
@@ -449,7 +481,7 @@ def plot_reward_contributions(*, use_moving_target: bool = True):
 
 
 def plot_r_pos_only():
-    """Plot the Gaussian distance reward r_pos on its own."""
+    
     d_values = np.linspace(0.0, 5.0, 400)
     vals = []
 
@@ -487,7 +519,7 @@ def plot_r_pos_only():
 
 
 def plot_reward_vs_action_change_heatmap():
-    """Plot signed action-penalty contribution over normalized surge/yaw command changes."""
+    
     dx_vals = np.linspace(-1.0, 1.0, 200)  # normalized surge command change
     dn_vals = np.linspace(-1.0, 1.0, 200)  # normalized yaw command change
 
@@ -551,5 +583,5 @@ if __name__ == "__main__":
     plot_reward_vs_relative_speed()  # relative-velocity reward sweep
     plot_reward_vs_hold_time()  # hold-time reward sweep
     plot_reward_contributions(use_moving_target=True)  # single operating-point reward breakdown """
-    plot_reward_vs_action_change_heatmap()
-   
+    #plot_reward_vs_action_change_heatmap()
+    plot_reward_components()

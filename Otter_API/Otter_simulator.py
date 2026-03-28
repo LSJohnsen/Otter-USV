@@ -238,107 +238,103 @@ class otter_simulator():
 
 
         # Main simulation loop
-        i = 0
         distanceHistory = 0
+        heading_error = 0.0
+        i = 0
+        self.target_counter = 0
+        self.target_coordinates = self.target_list[self.target_counter]
+        self.stationary_target = np.array([self.moving_target[0], self.moving_target[1]], dtype=float)
         while i < (N + 1):
             t = i * sampleTime
 
-            if self.use_target_coordinates:                                                                                 # If target coordinates are used
-            # Calculates the distance to the target
-                north_distance = self.target_coordinates[0] - eta[0]
-                east_distance = self.target_coordinates[1] - eta[1]
-                self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
-
-                # Goes to the next target when the current target is reached
-                if self.distance_to_target < self.surge_setpoint and (self.target_counter + 1) < len(self.target_list):
-                    self.target_counter = self.target_counter + 1
-                    self.target_coordinates = self.target_list[self.target_counter]
-                    north_distance = self.target_coordinates[0] - eta[0]
-                    east_distance = self.target_coordinates[1] - eta[1]
-                    self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
-
-
-                # Ends the simulation when the final target is reached
-                if self.end_when_last_target_reached:
-                    if self.target_coordinates == self.last_target:
-                        if self.distance_to_target < self.surge_setpoint:
-                            i = N
-                            print(f"Time is: {counter*sampleTime}s!")
-
-                # Calculates the angle to the target in radians
-                self.yaw_setpoint = math.atan2(east_distance, north_distance)
-                #self.yaw_setpoint = self.yaw_setpoint  * (180 / math.pi)
-
-
-            # Handles the tracking of the moving target
-            if self.use_moving_target:                                                                  # If a moving target is used
-                # Calculate distance to target:
-                north_distance = self.moving_target[0] - eta[0]
-                east_distance = self.moving_target[1] - eta[1]
-                           
-                self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2) #this
-                dist_tot = dist_tot + self.distance_to_target    
-
-                # use third order traj reference
-                if trajectory_reference:
-                    self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
-                        self.ref_dist,
-                        self.ref_dist_dot,
-                        self.ref_dist_ddot,
-                        self.distance_to_target,
-                        self.zeta_ref,
-                        self.omega_n_ref)
-                    
-                    self.distance_to_target = self.ref_dist
-                    
-                
-                if self.distance_to_target <= self.surge_setpoint:
-                    north_distance = 0
-                    east_distance = 0
-                    self.distance_to_target = 0
-
-                
-                self.yaw_setpoint = math.atan2(east_distance, north_distance)
-                heading_error  = (yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi #this
-
-
-                #self.yaw_setpoint = self.yaw_setpoint  * (180 / math.pi)
+            # Select active target
+            if self.use_moving_target:
+                # Update moving target position
                 if not self.circular_target:
-                    # Increases the target values every second
-                    if counter % (1/sampleTime) == 0:                                                                           #
-                        if counter >= 15000 and counter < 25000:                                                                #
-                            self.moving_target[0] = self.moving_target[0] + self.moving_target_increase[0]                      #
-                            self.moving_target[1] = self.moving_target[1] - self.moving_target_increase[1]                      #
-                            #self.moving_target[1] = self.moving_target[1]                                                       #
-                            #self.moving_target[0] = self.moving_target[0]                                                       #
-                        elif counter >= 25000 and counter < 35000:                                                              #
-                            self.moving_target[0] = self.moving_target[0] - self.moving_target_increase[0]/4                    #
-                            self.moving_target[1] = self.moving_target[1] - self.moving_target_increase[1]/4                    #
-                                                                                                                                #
-                        elif counter >= 35000 and counter < 50000:                                                              #
-                            self.moving_target[0] = self.moving_target[0] - self.moving_target_increase[0]*4                    #   Some random target movement, edit to test different paths
-                            self.moving_target[1] = self.moving_target[1]                                                       #
-                                                                                                                                #
-                        elif counter > 50000:                                                                                   #
-                            self.moving_target[0] = self.moving_target[0]                                                       #
-                            self.moving_target[1] = self.moving_target[1]                                                       #
-                                                                                                                                #
-                        else:                                                                                                   #
-                            self.moving_target[0] = self.moving_target[0] + self.moving_target_increase[0]                      #
-                            self.moving_target[1] = self.moving_target[1] + self.moving_target_increase[1]                      #
-
+                    if counter % (1 / sampleTime) == 0:
+                        if 15000 <= counter < 25000:
+                            self.moving_target[0] += self.moving_target_increase[0]
+                            self.moving_target[1] -= self.moving_target_increase[1]
+                        elif 25000 <= counter < 35000:
+                            self.moving_target[0] -= self.moving_target_increase[0] / 4
+                            self.moving_target[1] -= self.moving_target_increase[1] / 4
+                        elif 35000 <= counter < 50000:
+                            self.moving_target[0] -= self.moving_target_increase[0] * 4
+                        elif counter > 50000:
+                            pass
+                        else:
+                            self.moving_target[0] += self.moving_target_increase[0]
+                            self.moving_target[1] += self.moving_target_increase[1]
                 else:
                     omega = 1.5 / self.target_radius
-                    asd = asd + sampleTime
+                    asd += sampleTime
                     theta = omega * asd
                     self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
-                    self.moving_target[1] = self.target_circle_start_y -20 + self.target_radius * np.sin(theta)
+                    self.moving_target[1] = self.target_circle_start_y - 20 + self.target_radius * np.sin(theta)
 
+                target_north = self.moving_target[0]
+                target_east = self.moving_target[1]
 
+            elif self.use_target_coordinates:
+                # Only use waypoint/coordinate trajectory if explicitly enabled
+                target_north = self.target_coordinates[0]
+                target_east = self.target_coordinates[1]
 
+            else:
+                # Fixed stationary target
+                # Make sure self.stationary_target exists, e.g.
+                # self.stationary_target = np.array([x_target, y_target], dtype=float)
+                target_north = self.stationary_target[0]
+                target_east = self.stationary_target[1]
 
+            # Distance from vessel to active target
+            north_distance = target_north - eta[0]
+            east_distance = target_east - eta[1]
+            raw_distance = math.sqrt(north_distance**2 + east_distance**2)
 
-            angle = eta[5]                                                                                                          # Gets the current heading of the Otter
+            dist_tot += raw_distance
+
+            # Waypoint switching only when waypoint tracking is explicitly enabled
+            if self.use_target_coordinates and not self.use_moving_target:
+                if raw_distance < self.surge_setpoint and (self.target_counter + 1) < len(self.target_list):
+                    self.target_counter += 1
+                    self.target_coordinates = self.target_list[self.target_counter]
+
+                    target_north = self.target_coordinates[0]
+                    target_east = self.target_coordinates[1]
+                    north_distance = target_north - eta[0]
+                    east_distance = target_east - eta[1]
+                    raw_distance = math.sqrt(north_distance**2 + east_distance**2)
+
+                if self.end_when_last_target_reached:
+                    if self.target_coordinates == self.last_target and raw_distance < self.surge_setpoint:
+                        i = N
+                        print(f"Time is: {counter * sampleTime}s!")
+
+            # Optional trajectory shaping for approach
+            if trajectory_reference:
+                self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
+                    self.ref_dist,
+                    self.ref_dist_dot,
+                    self.ref_dist_ddot,
+                    raw_distance,
+                    self.zeta_ref,
+                    self.omega_n_ref
+                )
+                self.distance_to_target = self.ref_dist
+            else:
+                self.distance_to_target = raw_distance
+
+            angle = eta[5]
+
+            # Hover / station-keeping when close to the target
+            if raw_distance <= self.surge_setpoint:
+                self.distance_to_target = 0
+                self.yaw_setpoint = angle
+            else:
+                self.yaw_setpoint = math.atan2(east_distance, north_distance)
+
+            heading_error = (self.yaw_setpoint - angle + np.pi) % (2 * np.pi) - np.pi                                                                                                         # Gets the current heading of the Otter
 
             if i % 5 == 0:
                 self.tau_X = surge_PID.calculate_surge(self.surge_setpoint, self.distance_to_target, self.yaw_setpoint, angle)               # Gets surge control force      every 0.1s

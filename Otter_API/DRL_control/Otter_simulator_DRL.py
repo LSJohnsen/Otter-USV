@@ -738,9 +738,9 @@ class OtterSimDRL():
 
         return nu, u_actual
 
-
+# Resample trajectory to uniform dt using linear interpolation
 def resample_to_dt(simTime, simData, targetData, dt_new=0.02):
-    """Resample trajectory to uniform dt_new using linear interpolation."""
+    
     t_start = simTime[0]
     t_end   = simTime[-1]
     t_new = np.arange(t_start, t_end + 1e-9, dt_new)

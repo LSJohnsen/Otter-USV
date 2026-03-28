@@ -426,7 +426,7 @@ def plotYaw(simTime, simData, figNo):
 def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="test_path"):
     
     
-    n_marks   = 5 # how many USV/target marks 
+    n_marks   = 10 # how many USV/target marks 
     
     targetData = targetData[1:-1]
 

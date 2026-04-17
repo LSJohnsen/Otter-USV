@@ -371,17 +371,18 @@ def gvect(W,B,theta,phi,r_bg,r_bb):
 
 
 # (GNC p. 337) x_ref is current distance to target, returns reference. reduces overshoot
-def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n):
-    x_desired = np.array([x_d, x_d_dot, x_d_ddot])
-    x_reference = np.array([0, 0, x_ref])
+def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n, dt):
+    x = np.array([x_d, x_d_dot, x_d_ddot], dtype=float)
 
     Ad = np.array([
-        [0, 1, 0],
-        [0, 0, 1],
-        [-omega_n**3, -(2*zeta+1)*omega_n**2, -(2*zeta+1)*omega_n]
-    ])
-    Bd = np.array([0, 0, omega_n**3])
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [-omega_n**3, -(2.0*zeta + 1.0)*omega_n**2, -(2.0*zeta + 1.0)*omega_n]
+    ], dtype=float)
 
-    x_d, x_d_dot, x_d_ddot = Ad.dot(x_desired) + Bd.dot(x_reference)
+    Bd = np.array([0.0, 0.0, omega_n**3], dtype=float)
 
-    return x_d, x_d_dot, x_d_ddot
+    x_dot = Ad @ x + Bd * float(x_ref)
+    x_next = x + dt * x_dot
+
+    return float(x_next[0]), float(x_next[1]), float(x_next[2])

@@ -273,9 +273,7 @@ class otter_simulator():
                     self.moving_target[0] = -20 + 40 * np.cos(theta)
                     self.moving_target[1] = -20 + 40 * np.sin(theta)
 
-            # -----------------------------------------------------------------------
             # NMPC update at slower rate
-            # -----------------------------------------------------------------------
             if i % k_per_solve == 0:
                 # extract 3DOF state [x, y, psi, u, v, r]
                 x3dof = np.array([eta[0], eta[1], eta[5],
@@ -295,9 +293,8 @@ class otter_simulator():
             tau_X = float(last_tau_u[0])
             tau_N = float(last_tau_u[2])  # ignore sway component
 
-            # -----------------------------------------------------------------------
+
             # same saturation and allocation logic as PID version
-            # -----------------------------------------------------------------------
             self.tau_X = tau_X
             self.tau_N = tau_N
 

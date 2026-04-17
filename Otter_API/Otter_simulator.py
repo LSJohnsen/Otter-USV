@@ -312,14 +312,23 @@ class otter_simulator():
                         print(f"Time is: {counter * sampleTime}s!")
 
             # Optional trajectory shaping for approach
+            use_ref = False
+
             if trajectory_reference:
+                if self.use_moving_target:
+                    use_ref = True
+                else:
+                    use_ref = raw_distance > 3
+
+            if use_ref:
                 self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
                     self.ref_dist,
                     self.ref_dist_dot,
                     self.ref_dist_ddot,
                     raw_distance,
                     self.zeta_ref,
-                    self.omega_n_ref
+                    self.omega_n_ref,
+                    sampleTime
                 )
                 self.distance_to_target = self.ref_dist
             else:
@@ -334,13 +343,38 @@ class otter_simulator():
             else:
                 self.yaw_setpoint = math.atan2(east_distance, north_distance)
 
-            heading_error = (self.yaw_setpoint - angle + np.pi) % (2 * np.pi) - np.pi                                                                                                         # Gets the current heading of the Otter
+            heading_error = (self.yaw_setpoint - angle + np.pi) % (2 * np.pi) - np.pi
+
+            if raw_distance < 3.0:
+                if heading_error > np.deg2rad(35):
+                    heading_scale = 0.0
+                elif heading_error > np.deg2rad(15):
+                    heading_scale = 0.3
+                else:
+                    heading_scale = 1.0
+            else:
+                heading_scale = max(0.0, np.cos(heading_error))
 
             if i % 5 == 0:
-                self.tau_X = surge_PID.calculate_surge(self.surge_setpoint, self.distance_to_target, self.yaw_setpoint, angle)               # Gets surge control force      every 0.1s
-                self.tau_N = yaw_PID.calculate_yaw(self.yaw_setpoint, angle, self.surge_setpoint, self.distance_to_target)                   # Gets yaw control force
+                # raw controller outputs
+                tau_X_cmd = surge_PID.calculate_surge(
+                    self.surge_setpoint,
+                    self.distance_to_target,
+                    self.yaw_setpoint,
+                    angle
+                )
+                self.tau_N = yaw_PID.calculate_yaw(
+                    self.yaw_setpoint,
+                    angle,
+                    self.surge_setpoint,
+                    self.distance_to_target
+                )
+
+                # reduce surge when heading is poor
+                self.tau_X = tau_X_cmd * heading_scale
 
             else:
+                # hold previous commands between controller updates
                 self.tau_X = self.tau_X
                 self.tau_N = self.tau_N
 
@@ -498,266 +532,295 @@ class otter_simulator():
 
     def simulate_NMPC(self, N, sampleTime, otter, nmpc, control_dt=0.1, trajectory_reference=True):
 
-            counter = 0
-            reached_target_time = 0
-            self.reached_yaw_target_time = 0
-            finished = False
-            finished_yaw = False
-            asd = 0.0
+        counter = 0
+        reached_target_time = 0
+        self.reached_yaw_target_time = 0
+        finished = False
+        finished_yaw = False
+        asd = 0.0
 
-            DOF = 6
-            t = 0.0
+        DOF = 6
+        t = 0.0
 
-            # Initial state
-            eta = np.array([0, 0, 0, 0, 0, 0], float)
-            nu = self.nu.copy()
-            u_actual = self.u_actual.copy()
+        # Initial state
+        eta = np.array([0, 0, 0, 0, 0, 0], dtype=float)
+        nu = self.nu.copy()
+        u_actual = self.u_actual.copy()
 
-            # target data
-            self.targetData = np.array([self.moving_target[0], self.moving_target[1]])
-            simData = np.empty([0, 2 * DOF + 2 * self.dimU], float)
+        # Initial target logging
+        self.targetData = np.array([self.moving_target[0], self.moving_target[1]], dtype=float)
+        simData = np.empty([0, 2 * DOF + 2 * self.dimU], dtype=float)
 
-            # first target
-            self.target_counter = 0
+        self.metrics.reset()
+
+        # Waypoint setup only if enabled
+        self.target_counter = 0
+        if self.use_target_coordinates and len(self.target_list) > 0:
             self.target_coordinates = self.target_list[self.target_counter]
-            dist_tot = 0.0
 
-            # NMPC timing
-            k_per_solve = max(1, int(round(control_dt / sampleTime)))
-            last_tau_u = np.zeros(3)  # [X, Y, N]
+        # Fixed stationary target for station-keeping when not using moving target or waypoint list
+        self.stationary_target = np.array([self.moving_target[0], self.moving_target[1]], dtype=float)
 
+        dist_tot = 0.0
 
-            for i in range(N + 1):
-                t = i * sampleTime
+        # NMPC timing
+        k_per_solve = max(1, int(round(control_dt / sampleTime)))
+        last_tau_u = np.zeros(3, dtype=float)   # [X, Y, N]
 
-                # target handling sane as simulate
-                if self.use_target_coordinates:
-                    north_distance = self.target_coordinates[0] - eta[0]
-                    east_distance  = self.target_coordinates[1] - eta[1]
-                    self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
-
-                    # switch to next target
-                    if self.distance_to_target < self.surge_setpoint and (self.target_counter + 1) < len(self.target_list):
-                        self.target_counter += 1
-                        self.target_coordinates = self.target_list[self.target_counter]
-                        north_distance = self.target_coordinates[0] - eta[0]
-                        east_distance  = self.target_coordinates[1] - eta[1]
-                        self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
-
-                    # end when last target reached
-                    if self.end_when_last_target_reached and self.target_coordinates is self.last_target:
-                        if self.distance_to_target < self.surge_setpoint:
-                            print(f"Time is: {counter * sampleTime}s!")
-                            break
-
-                    self.yaw_setpoint = math.atan2(east_distance, north_distance) 
-                if self.use_moving_target:                                                                  # If a moving target is used
-                # Calculate distance to target:
-                    north_distance = self.moving_target[0] - eta[0]
-                    east_distance = self.moving_target[1] - eta[1]
-
-                    self.distance_to_target = math.sqrt(north_distance**2 + east_distance**2)
-                    dist_tot = dist_tot + self.distance_to_target
-
-                        # use third order traj reference
-                    if trajectory_reference:
-                        self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
-                            self.ref_dist,
-                            self.ref_dist_dot,
-                            self.ref_dist_ddot,
-                            self.distance_to_target,
-                            self.zeta_ref,
-                            self.omega_n_ref)
-                        
-                        self.distance_to_target = self.ref_dist
-
-                    if self.distance_to_target <= self.surge_setpoint:
-                        north_distance = 0
-                        east_distance = 0
-                        self.distance_to_target = 0
-
-                    self.yaw_setpoint = math.atan2(east_distance, north_distance)
-                    
-                    
-                    #self.yaw_setpoint = self.yaw_setpoint  * (180 / math.pi)
-                    if not self.circular_target:
-                        # Increases the target values every second
-                        if counter % (1/sampleTime) == 0:                                                                           #
-                            if counter >= 15000 and counter < 25000:                                                                #
-                                self.moving_target[0] = self.moving_target[0] + self.moving_target_increase[0]                      #
-                                self.moving_target[1] = self.moving_target[1] - self.moving_target_increase[1]                      #
-                                #self.moving_target[1] = self.moving_target[1]                                                       #
-                                #self.moving_target[0] = self.moving_target[0]                                                       #
-                            elif counter >= 25000 and counter < 35000:                                                              #
-                                self.moving_target[0] = self.moving_target[0] - self.moving_target_increase[0]/4                    #
-                                self.moving_target[1] = self.moving_target[1] - self.moving_target_increase[1]/4                    #
-                                                                                                                                    #
-                            elif counter >= 35000 and counter < 50000:                                                              #
-                                self.moving_target[0] = self.moving_target[0] - self.moving_target_increase[0]*4                    #   Some random target movement, edit to test different paths
-                                self.moving_target[1] = self.moving_target[1]                                                       #
-                                                                                                                                    #
-                            elif counter > 50000:                                                                                   #
-                                self.moving_target[0] = self.moving_target[0]                                                       #
-                                self.moving_target[1] = self.moving_target[1]                                                       #
-                                                                                                                                    #
-                            else:                                                                                                   #
-                                self.moving_target[0] = self.moving_target[0] + self.moving_target_increase[0]                      #
-                                self.moving_target[1] = self.moving_target[1] + self.moving_target_increase[1]                      #
-
-                    else:
-                        omega = 1.5 / self.target_radius
-                        asd = asd + sampleTime
-                        theta = omega * asd
-                        self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
-                        self.moving_target[1] = self.target_circle_start_y -20 + self.target_radius * np.sin(theta)     
+        i = 0
+        while i < (N + 1):
+            t = i * sampleTime
 
             
-                # NMPC update at slower rate
-             
-                if i % k_per_solve == 0:
-                    x3dof = np.array([eta[0], eta[1], eta[5],
-                                    nu[0],  nu[1],  nu[5]], dtype=float)
-
-                    if self.use_moving_target:
-                        target_ref = np.array([self.moving_target[0],
-                                            self.moving_target[1]], dtype=float)
-                    else:
-                        target_ref = np.array([self.target_coordinates[0],
-                                            self.target_coordinates[1]], dtype=float)
-
-                    try:
-                        tau_u = nmpc.solve_control(x3dof, target_ref)
-                        last_tau_u = tau_u.copy()
-                    except Exception as e:
-                        print("NMPC solve failed:", e)
-                        tau_u = last_tau_u
-
-
-                # use last_tau_u between MPC updates
-                tau_X = float(last_tau_u[0])
-                tau_N = float(last_tau_u[2])  # ignore sway component
-
-               
-                self.tau_X = tau_X
-                self.tau_N = tau_N
-
-                # saturate yaw
-                self.tau_N = max(min(self.tau_N, self.max_force), -self.max_force)
-                remaining_force = self.max_force - abs(self.tau_N)
-
-                # prioritize yaw, limit surge
-                if self.tau_X > remaining_force:
-                    self.tau_X = remaining_force
-                elif self.tau_X < -remaining_force:
-                    self.tau_X = -remaining_force
-
-                if self.store_force_file:
-                    forces = np.array([self.tau_X, self.tau_N])
-                    self.force_array = np.vstack((self.force_array, forces))
-
-                # thruster allocation
-                if self.tau_N < 0:
-                    n1, n2 = otter.controlAllocation(self.tau_X, -self.tau_N)
-                    self.tau_N_neg = True
+            # active target 
+            if self.use_moving_target:
+                if not self.circular_target:
+                    if counter % int(round(1 / sampleTime)) == 0:
+                        if 15000 <= counter < 25000:
+                            self.moving_target[0] += self.moving_target_increase[0]
+                            self.moving_target[1] -= self.moving_target_increase[1]
+                        elif 25000 <= counter < 35000:
+                            self.moving_target[0] -= self.moving_target_increase[0] / 4
+                            self.moving_target[1] -= self.moving_target_increase[1] / 4
+                        elif 35000 <= counter < 50000:
+                            self.moving_target[0] -= self.moving_target_increase[0] * 4
+                        elif counter > 50000:
+                            pass
+                        else:
+                            self.moving_target[0] += self.moving_target_increase[0]
+                            self.moving_target[1] += self.moving_target_increase[1]
                 else:
-                    n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
-                    self.tau_N_neg = False
+                    omega = 1.5 / self.target_radius
+                    asd += sampleTime
+                    theta = omega * asd
+                    self.moving_target[0] = self.target_circle_start_x + self.target_radius * np.cos(theta)
+                    self.moving_target[1] = self.target_circle_start_y - 20 + self.target_radius * np.sin(theta)
 
-                if n1 < 0:
-                    self.n1neg = True
-                    n1 = -n1
-                if n2 < 0:
-                    self.n2neg = True
-                    n2 = -n2
+                target_north = self.moving_target[0]
+                target_east = self.moving_target[1]
 
-                torque_z, torque_x, speed = otter.otter_control.interpolate_force_values(n1, n2, 3)
+            elif self.use_target_coordinates:
+                target_north = self.target_coordinates[0]
+                target_east = self.target_coordinates[1]
 
-                if self.n1neg:
-                    n1 = -n1
-                    self.n1neg = False
-                if self.n2neg:
-                    n2 = -n2
-                    self.n2neg = False
+            else:
+                # Stationary target without waypoint list
+                target_north = self.stationary_target[0]
+                target_east = self.stationary_target[1]
 
-                if self.tau_N_neg:
-                    n1_calc = n2
-                    n2_calc = n1
-                else:
-                    n1_calc = n1
-                    n2_calc = n2
+        
+            # Distance and waypoint
+            north_distance = target_north - eta[0]
+            east_distance = target_east - eta[1]
+            raw_distance = math.sqrt(north_distance**2 + east_distance**2)
 
-                u_control = np.array([n1_calc, n2_calc])
+            dist_tot += raw_distance
 
-                # store data
-                signals = np.append(np.append(np.append(eta, nu), u_control), u_actual)
-                simData = np.vstack([simData, signals])
+            if self.use_target_coordinates and not self.use_moving_target:
+                if raw_distance < self.surge_setpoint and (self.target_counter + 1) < len(self.target_list):
+                    self.target_counter += 1
+                    self.target_coordinates = self.target_list[self.target_counter]
 
-                heading_error  = (self.yaw_setpoint - eta[5] + np.pi) % (2*np.pi) - np.pi           
-                
+                    target_north = self.target_coordinates[0]
+                    target_east = self.target_coordinates[1]
+                    north_distance = target_north - eta[0]
+                    east_distance = target_east - eta[1]
+                    raw_distance = math.sqrt(north_distance**2 + east_distance**2)
 
-                # propagate dynamics
-                [nu, u_actual] = self.dynamics(eta, nu, u_actual, u_control, sampleTime)
-                eta = attitudeEuler(eta, nu, sampleTime)
-                
-                self.metrics.update(
-                    distance_to_target=self.distance_to_target,
-                    heading_error=heading_error,
-                    u1=u_actual[0],
-                    u2=u_actual[1],
-                    dt=sampleTime,
+                if self.end_when_last_target_reached:
+                    if np.allclose(self.target_coordinates, self.last_target) and raw_distance < self.surge_setpoint:
+                        print(f"Time is: {counter * sampleTime}s!")
+                        break
+
+            
+            # reference shaping - ignore traj reference for stationary
+            use_ref = trajectory_reference and self.use_moving_target
+
+            if use_ref:
+                self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = third_order_reference(
+                    self.ref_dist,
+                    self.ref_dist_dot,
+                    self.ref_dist_ddot,
+                    raw_distance,
+                    self.zeta_ref,
+                    self.omega_n_ref,
+                    sampleTime
                 )
+                self.distance_to_target = self.ref_dist
+                
+            else:
+                self.distance_to_target = raw_distance
+
+            # Station-keeping yaw behavior for metrics/plotting
             
+            angle = eta[5]
+            if self.use_moving_target:
+                # never zero distance for moving target
+                self.yaw_setpoint = math.atan2(east_distance, north_distance)
+            else:
+                if raw_distance <= self.surge_setpoint:
+                    self.distance_to_target = 0.0
+                    self.yaw_setpoint = angle
+                else:
+                    self.yaw_setpoint = math.atan2(east_distance, north_distance)
 
-                if self.verbose:
-                    if counter % 100 == 0:
-                        print(f"Running #{counter}")
-                    if self.distance_to_target < self.surge_setpoint + 2 and not finished:
-                        reached_target_time = counter * sampleTime
-                        finished = True
+            heading_error = (self.yaw_setpoint - angle + np.pi) % (2 * np.pi) - np.pi
 
-                    angle = eta[5]
-                    if (angle > 3.12 or angle < -3.12) and not finished_yaw:
-                        self.reached_yaw_target_time = counter * sampleTime
-                        finished_yaw = True
+        
+            # NMPC update
+            if i % k_per_solve == 0:
+                # x = [x, y, psi, u, v, r]
+                x3dof = np.array([
+                    eta[0], eta[1], eta[5],
+                    nu[0],  nu[1],  nu[5]
+                ], dtype=float)
 
-                newTargetData = [self.moving_target[0], self.moving_target[1]]
-                self.targetData = np.vstack([self.targetData, newTargetData])
+                # Use fixed position target for station-keeping
+                if trajectory_reference and self.use_moving_target:
+                    direction = np.array([north_distance, east_distance], dtype=float)
+                    norm_dir = np.linalg.norm(direction)
 
-                counter += 1
-            simTime = np.arange(start=0, stop=t + sampleTime, step=sampleTime)[:, None]
-            targetData = self.targetData
+                    if norm_dir > 1e-6:
+                        unit_dir = direction / norm_dir
+                        ref_dist_used = min(self.ref_dist, raw_distance)
+                        target_ref = np.array([
+                            eta[0] + ref_dist_used * unit_dir[0],
+                            eta[1] + ref_dist_used * unit_dir[1]
+                        ], dtype=float)
+                    else:
+                        target_ref = np.array([target_north, target_east], dtype=float)
+                else:
+                    target_ref = np.array([target_north, target_east], dtype=float)
+
+
+                try:
+                    tau_u = nmpc.solve_control(x3dof, target_ref)
+                    last_tau_u = tau_u.copy()
+                except Exception as e:
+                    print("NMPC solve failed:", e)
+                    tau_u = last_tau_u
+
+            # Hold previous NMPC command between solves
+            self.tau_X = float(last_tau_u[0])
+            self.tau_N = float(last_tau_u[2])   # ignore sway force
+
+            # Saturation and allocation
+            self.tau_N = max(min(self.tau_N, self.max_force), -self.max_force)
+            remaining_force = self.max_force - abs(self.tau_N)
+
+            if self.tau_X > remaining_force:
+                self.tau_X = remaining_force
+            elif self.tau_X < -remaining_force:
+                self.tau_X = -remaining_force
 
             if self.store_force_file:
-                np.savetxt("force_array.csv", self.force_array, delimiter=";", header="tau_X;tau_N", comments="")
+                forces = np.array([self.tau_X, self.tau_N])
+                self.force_array = np.vstack((self.force_array, forces))
 
+            if self.tau_N < 0:
+                n1, n2 = otter.controlAllocation(self.tau_X, -self.tau_N)
+                self.tau_N_neg = True
+            else:
+                n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
+                self.tau_N_neg = False
+
+            if n1 < 0:
+                self.n1neg = True
+                n1 = -n1
+            if n2 < 0:
+                self.n2neg = True
+                n2 = -n2
+
+            torque_z, torque_x, speed = otter.otter_control.interpolate_force_values(n1, n2, 3)
+
+            if self.n1neg:
+                n1 = -n1
+                self.n1neg = False
+            if self.n2neg:
+                n2 = -n2
+                self.n2neg = False
+
+            if self.tau_N_neg:
+                n1_calc = n2
+                n2_calc = n1
+            else:
+                n1_calc = n1
+                n2_calc = n2
+
+            u_control = np.array([n1_calc, n2_calc])
+
+
+            # Store data and propagate dynamics
+            signals = np.append(np.append(np.append(eta, nu), u_control), u_actual)
+            simData = np.vstack([simData, signals])
+
+            [nu, u_actual] = self.dynamics(eta, nu, u_actual, u_control, sampleTime)
+            eta = attitudeEuler(eta, nu, sampleTime)
+
+            self.metrics.update(
+                distance_to_target=self.distance_to_target,
+                heading_error=heading_error,
+                u1=u_actual[0],
+                u2=u_actual[1],
+                dt=sampleTime,
+            )
+
+            # Logging / progress
             if self.verbose:
-                self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
-                self.ISU = self.metrics.get_ISU()
-                self.ISU_normalized = self.metrics.get_ISU_normalized()
-                self.IAU = self.metrics.get_IAU()
-                print(f"IAE distance = {self.IAE_dist:.2f}")
-                print(f"IAE heading  = {self.IAE_head:.2f}")
-                print(f"ISU normalized = {self.ISU_normalized:.2f}")
-                print(f"ISU = {self.ISU:.2f}")
-                print(f"IAU = {self.IAU:.2f}")
-                print(f"AVG distance to target = {dist_tot/i:.2f}")
-                print(f"Reached target in {reached_target_time:.2f}s (0 if target not reached)")
-                print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
+                if counter % 100 == 0:
+                    print(f"Running #{counter}")
 
-                param_dict = {
-                    "Control_method": "NMPC",
-                    "IAE_distance": self.IAE_dist,
-                    "IAE_heading": self.IAE_head,
-                    "ISU": self.ISU,
-                    "ISU_normalized": self.ISU_normalized,
-                    "IAU": self.IAU,
-                    "avg_distance_to_target": dist_tot / i,
-                    "reached_target_time": reached_target_time,
-                    "reached_yaw_target_time": self.reached_yaw_target_time}
+                if self.distance_to_target < self.surge_setpoint + 2 and not finished:
+                    reached_target_time = counter * sampleTime
+                    finished = True
 
-                log_params(param_dict, filename="parameters.txt", verbose=self.verbose)
+                if (angle > 3.12 or angle < -3.12) and not finished_yaw:
+                    self.reached_yaw_target_time = counter * sampleTime
+                    finished_yaw = True
 
-            return (simTime, simData, targetData)
+            # Log active target position
+            newTargetData = [target_north, target_east]
+            self.targetData = np.vstack([self.targetData, newTargetData])
+
+            counter += 1
+            i += 1
+
+        simTime = np.arange(start=0, stop=t + sampleTime, step=sampleTime)[:, None]
+        targetData = self.targetData
+
+        if self.store_force_file:
+            np.savetxt("force_array.csv", self.force_array, delimiter=";", header="tau_X;tau_N", comments="")
+
+        if self.verbose:
+            self.IAE_dist, self.IAE_head = self.metrics.get_IAE()
+            self.ISU = self.metrics.get_ISU()
+            self.ISU_normalized = self.metrics.get_ISU_normalized()
+            self.IAU = self.metrics.get_IAU()
+
+            print(f"IAE distance = {self.IAE_dist:.2f}")
+            print(f"IAE heading  = {self.IAE_head:.2f}")
+            print(f"ISU normalized = {self.ISU_normalized:.2f}")
+            print(f"ISU = {self.ISU:.2f}")
+            print(f"IAU = {self.IAU:.2f}")
+            print(f"AVG distance to target = {dist_tot / max(i, 1):.2f}")
+            print(f"Reached target in {reached_target_time:.2f}s (0 if target not reached)")
+            print(f"Reached yaw target in {self.reached_yaw_target_time:.2f}s")
+
+            param_dict = {
+                "Control_method": "NMPC",
+                "IAE_distance": self.IAE_dist,
+                "IAE_heading": self.IAE_head,
+                "ISU": self.ISU,
+                "ISU_normalized": self.ISU_normalized,
+                "IAU": self.IAU,
+                "avg_distance_to_target": dist_tot / max(i, 1),
+                "reached_target_time": reached_target_time,
+                "reached_yaw_target_time": self.reached_yaw_target_time,
+            }
+
+            log_params(param_dict, filename="parameters.txt", verbose=self.verbose)
+
+        return (simTime, simData, targetData)
     
 
     def dynamics(self, eta, nu, u_actual, u_control, sampleTime):

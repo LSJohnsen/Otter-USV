@@ -30,7 +30,7 @@ def plot_cdf(df, key="IAE_distance"):
 
 
 
-# AI-generated plot
+# gpt generated plot
 def plot_iae_from_csv(csv_path, use_global_episode=False, plot_heading=False):
     """
     Reads a CSV log and plots IAE vs episode.

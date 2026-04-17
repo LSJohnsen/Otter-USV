@@ -26,19 +26,20 @@ from logs.IO import log_to_csv
 
 
 
-N = 13333                                                                                               # Number of simulation samples
+N = 13333                                                                                             # Number of simulation samples
+N = 7500
 sampleTime = 0.02                                                                                       # Simulation time per sample. Usually at 0.02, other values could cause instabillity in the simulation
 use_target_coordinates = False                                                                          # To use coordinates as a target or to use a linear path
-use_moving_target = False                                                                                # To use moving target instead of target list (path following)
+use_moving_target = False                                                                               # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
-moving_target_start = [0, -10]                                                                          # Start point of the moving target if use_moving_target is set to True
-moving_target_increase = [-0.5, 0.0]                                                                    # Movement of the moving target each second
-target_radius = 0.1                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
+moving_target_start = [0, -20]                                                                          # Start point of the moving target if use_moving_target is set to True
+moving_target_increase = [0.5, 0.0]                                                                     # Movement of the moving target each second
+target_radius = 0.2                                                                                     # Radius from center of target that counts as target reached, change this depending on the complete size of the run. Very low values causes instabillity
 verbose = True                                                                                          # Enable verbose printing
-log_simulation = True                                                                                   # Enable verbose for logging sim
+log_simulation = False                                                                                 # Enable verbose for logging sim
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
-circular_target = True                                                                                  # Make the moving target a circle in the simulation
+circular_target = False                                                                                  # Make the moving target a circle in the simulation
 animate_path = False                                                                                    # This takes a lot of time! File stored as 2D_animation.gif
 
 # NMPC
@@ -77,6 +78,7 @@ trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0,
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 25.13, "surge_kd" : 1, "yaw_kp" : 25.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86} # third order trjacectory (>integral surge)
+pp_04 = {"surge_kp" : 14.39, "surge_ki" : 0, "surge_kd" : 60, "yaw_kp" : 30.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
 test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
 
 if parameter_list == 1:
@@ -148,7 +150,6 @@ pid = PIDController(
 )
 surge_PID = SurgePIDAdapter(pid)
 yaw_PID   = YawPIDAdapter(pid)
-
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
 
@@ -160,6 +161,8 @@ nmpc = NMPCControl(
     N=N_horizon,
     sampleTime=control_dt,
 )
+if use_moving_target == False:
+    nmpc.set_mode("stationkeeping")
 
 print("Welcome to the Otter controller simulator and socket")                                                      
 try:
@@ -200,8 +203,6 @@ def exit_handler():
 
 
 
-# Main:
-
 def main(option):
     #sim
     if option == 1:
@@ -213,7 +214,7 @@ def main(option):
                                                                 surge_PID, 
                                                                 yaw_PID,
                                                                 trajectory_reference=True)   # This runs the whole simulation
-            log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
+            #log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #
@@ -242,7 +243,7 @@ def main(option):
                                                         otter=otter,
                                                         nmpc=nmpc,
                                                         control_dt=control_dt)
-            log_to_csv(simTime, simData, targetData, filename="sim_log_nmpc.csv", verbose=log_simulation)
+            #log_to_csv(simTime, simData, targetData, filename="sim_log_nmpc.csv", verbose=log_simulation)
 
             plotVehicleStates(simTime, simData, 1)                                                          #
             plotControls(simTime, simData, otter, 2)                                                        #

@@ -34,7 +34,7 @@ import csv
 import time
 from DRL_control.reward_callback_plot import append_reward_training_progress
 
-# Use cpu since bottleneck is simulation dynamics, not grapical
+# generally use cpu since bottleneck is simulation dynamics, not grapical
 device = torch.device("cpu")
 print(f"Using device: {device}")
 
@@ -54,8 +54,6 @@ animate_path = False
 training_timesteps = 100000000                                                                          # Set timesteps (10mil-50mil+ depending on straight/circle)
 log_results = False                                                                                     # log sim to csv, false when training
 
-start_north = -20 #not used?                                                                            # Target north position from reference point
-start_east = -20 #not used?                                                                             # Target east position from reference point
 randomize_position = True                                                                               # Used to randomize usv start position for better training
 randomize_path = True                                                                                   # Randomizes paths to circular/straight line/stationary
 v_north = 0                                                                                             # Moving target speed north (m/s)
@@ -66,7 +64,7 @@ max_episode_time = 266.66
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
-path_probabilities = [0.5, 0.5, 0]                                                                      # probability of [stationary, straight line, circle] target movement
+path_probabilities = [0, 1, 0]                                                                          # probability of [stationary, straight line, circle] target movement
 
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
@@ -580,7 +578,7 @@ class OtterEnv(gym.Env):
         hold_ratio_short = np.clip(self.hold_time / max(t_short, 1e-6), 0.0, 1.0)**2   # increasing reward for staying on targe -.. testing scaling to prioritize holding longer
         hold_ratio_long  = np.clip(self.hold_time / max(t_long,  1e-6), 0.0, 1.0)      # reward for completing long hold
 
-        r_hold = in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)                    # hold time reward
+        r_hold = 5 * in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)                    # hold time reward
 
         # final
         reward += r_pos                                                         # reward for correct distance
@@ -593,9 +591,25 @@ class OtterEnv(gym.Env):
         reward -= r_action                                                      # penalty for aggressive actuation   
         reward += r_hold                                                        # reward for hovering above target
         if success:
-            reward += 5.0                                                       # bonus for completing the hold objective
+            reward += 100.0                                                     # bonus for completing the hold objective
+
+        
+        self.episode_reward_breakdown["r_pos"] += float(r_pos)
+        self.episode_reward_breakdown["r_d_dot"] += float(r_d_dot)
+        self.episode_reward_breakdown["r_heading"] += float(r_heading)
+        self.episode_reward_breakdown["r_heading2"] += float(r_heading2)
+        self.episode_reward_breakdown["r_surge"] += float(r_surge)
+        self.episode_reward_breakdown["r_vel"] += float(r_vel)
+        self.episode_reward_breakdown["r_time"] += float(r_time)
+        self.episode_reward_breakdown["r_action"] += float(r_action)
+        self.episode_reward_breakdown["r_hold"] += float(r_hold)
+
+        if success:
+            self.episode_reward_breakdown["success_bonus"] += 100.0
 
         reward *= 0.1
+        self.episode_reward_breakdown["total_reward"] += float(reward)
+
 
         if terminated or truncated:
             info["is_success"] = bool(success)
@@ -606,6 +620,9 @@ class OtterEnv(gym.Env):
             info["intercept_time"] = self.last_reached_target_time
             info["r0"] = self.r0
             info["alpha0"] = self.alpha0
+            info["reward_breakdown"] = self.episode_reward_breakdown.copy()
+
+
 
         return obs, reward, terminated, truncated, info
 
@@ -661,6 +678,20 @@ class OtterEnv(gym.Env):
             self.last_IAU = 0.0
 
         super().reset(seed=seed)
+
+        self.episode_reward_breakdown = {
+            "r_pos": 0.0,
+            "r_d_dot": 0.0,
+            "r_heading": 0.0,
+            "r_heading2": 0.0,
+            "r_surge": 0.0,
+            "r_vel": 0.0,
+            "r_time": 0.0,
+            "r_action": 0.0,
+            "r_hold": 0.0,
+            "success_bonus": 0.0,
+            "total_reward": 0.0,
+        }
 
         self.current_step = 0
         self.target_arc_length = 0.0
@@ -912,7 +943,7 @@ class CallBackLog(BaseCallback):
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.80, verbose=1):
+    def __init__(self, window_size=200, threshold=0.95, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold
@@ -940,7 +971,40 @@ class StopOnSuccessRate(BaseCallback):
                         return False  # stops learn()
 
         return True
-    
+
+def log_one_episode_reward_breakdown(model, eval_env):
+    obs = eval_env.reset()
+    done = False
+    truncated = False
+    episode_reward = 0.0
+
+    while not (done or truncated):
+        action, _ = model.predict(obs, deterministic=True)
+        obs, rewards, dones, infos = eval_env.step(action)
+
+        episode_reward += float(rewards[0])
+        done = bool(dones[0])
+
+        # Gymnasium vec envs put truncation into done
+        info = infos[0]
+
+        if done:
+            breakdown = info.get("reward_breakdown", None)
+
+            print("\nEpisode finished")
+            print(f"Success: {info.get('is_success', False)}")
+            print(f"Total episode reward returned by env: {episode_reward:.3f}")
+
+            if breakdown is None:
+                print("No reward breakdown found in info.")
+                return
+
+            print("\nReward breakdown:")
+            for k, v in breakdown.items():
+                print(f"{k:>15}: {v:.3f}")
+
+            return
+
 if __name__ == "__main__":
 
     print(f"Using device: {device}")
@@ -1016,30 +1080,36 @@ if __name__ == "__main__":
             )
 
         print("\nTraining model: \n")
+
         IAE_callback = CallBackLog(verbose=1)
         reward_callback = RewardCallback(n_envs=n_envs, print_every=10, verbose=1)
-        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.80, verbose=1) # threshold = % of window size required to be complete, modify for relevance
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1) # threshold = % of window size required to be success 
         interrupted = False
 
         try:
             model.learn(
                 total_timesteps=training_timesteps,
-                callback=[reward_callback, stop_callback],
+                callback=[reward_callback, IAE_callback, stop_callback],
             )
         except KeyboardInterrupt:
             interrupted = True
             print("\nInterrupted. Will save checkpoint.")
-            append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
-            append_reward_training_progress(os.path.join(SAVE_DIR, "reward_training_progress.csv"), reward_callback)
         finally:
-            # always save checkpoint
             print("\nCompleted total timesteps: saving checkpoint")
             model.save(CHECKPOINT_MODEL)
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
 
+            # always save training logs
+            append_reward_training_progress(
+                os.path.join(SAVE_DIR, "reward_training_progress.csv"),
+                reward_callback
+            )
+            append_iae_training_progress(
+                os.path.join(SAVE_DIR, "iae_training_progress.csv"),
+                IAE_callback
+            )
 
-            # save to final if goal reached
             if stop_callback.completed and not interrupted:
                 print("\n Goal reached, saving final model")
                 model.save(FINAL_MODEL)
@@ -1079,6 +1149,7 @@ if __name__ == "__main__":
 
         # Load the trained policy
         model = PPO.load(CHECKPOINT_MODEL, env=eval_env, device="cpu")
+        log_one_episode_reward_breakdown(model, eval_env)
 
 
     else:

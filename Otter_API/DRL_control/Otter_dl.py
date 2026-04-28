@@ -34,6 +34,7 @@ import csv
 import time
 from DRL_control.reward_callback_plot import append_reward_training_progress
 
+
 # generally use cpu since bottleneck is simulation dynamics, not grapical
 device = torch.device("cpu")
 print(f"Using device: {device}")
@@ -66,6 +67,10 @@ side_length = 50                                                                
 side_target_speed = 1                                                                                   # Speed of square target
 path_probabilities = [0, 1, 0]                                                                          # probability of [stationary, straight line, circle] target movement
 
+# Disturbances
+wave_disturbance = True
+wind_disturbance = True
+
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
@@ -89,7 +94,9 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             verbose,
                                             store_force_file,
                                             circular_target,
-                                            radius)
+                                            radius,
+                                            use_waves=wave_disturbance,
+                                            use_wind=wind_disturbance)
 
 print("initialized otter api and simulator")
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
@@ -943,7 +950,7 @@ class CallBackLog(BaseCallback):
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.95, verbose=1):
+    def __init__(self, window_size=200, threshold=0.99, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold
@@ -1083,7 +1090,7 @@ if __name__ == "__main__":
 
         IAE_callback = CallBackLog(verbose=1)
         reward_callback = RewardCallback(n_envs=n_envs, print_every=10, verbose=1)
-        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.95, verbose=1) # threshold = % of window size required to be success 
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.99, verbose=1) # threshold = % of window size required to be success 
         interrupted = False
 
         try:

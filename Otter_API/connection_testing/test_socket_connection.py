@@ -1,14 +1,21 @@
 import socket
 
-ip = "192.168.53.2"
-for port in [2009, 3200, 8080, 22, 32001]:
-    try:
-        s = socket.socket()
+ips = ["192.168.53.2", "10.0.5.1"]
+ports = [2009, 3200, 8080, 22, 32001]
+
+for ip in ips:
+    print(f"\nTesting IP: {ip}")
+
+    for port in ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(2)
-        s.connect(("192.168.53.2", port))
-        print(f"Success on port {port}")
-    except Exception as e:
-        print(f"Port {port} failed:", e)
-    finally:
-        s.close()
-        
+
+        try:
+            s.connect((ip, port))
+            print(f"Success: {ip}:{port}")
+
+        except Exception as e:
+            print(f"Failed:  {ip}:{port} -> {e}")
+
+        finally:
+            s.close()

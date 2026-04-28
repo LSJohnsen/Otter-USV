@@ -170,7 +170,7 @@ class NMPCControl:
             control_cost = 0.1 * (control_step.T @ R @ control_step)
 
             if self.mode == "tracking":
-                # Simpler original target-tracking cost
+                # Simpler target-tracking cost
                 heading_cost = self.w_psi * (1 - ca.cos(dpsi))
 
                 objective_cost += tracking_cost + control_cost + heading_cost
@@ -198,7 +198,7 @@ class NMPCControl:
         control_rate_cost = ca.sumsqr(I @ control_rate)
         objective_cost += control_rate_cost
 
-        # Terminal penalties only for stationkeeping
+        # Terminal penalties for stationkeeping
         if self.mode == "stationkeeping":
             terminal_pos_error = x[0:2, N] - t_ref
             terminal_pos_cost = terminal_pos_error.T @ self.Qf_pos @ terminal_pos_error

@@ -15,18 +15,21 @@ from casadi_control.MPC_control import NMPCControl
 from casadi_control.lib.usv_params import usv_params_6dof
 from casadi_control.model_3dof import Otter3DOF
 
+from lib.Live_DRL import LiveDRLController
+
 from logs.IO import log_to_csv
 
 
 ##########################################################################################################################################################
 #                                                                      OPTIONS                                                                           #
 #    For testing of the Otter USV. First options determine simulation parameters, secondary options either for UGPS or live tracking with sim target     #                                                                                                                                                                                                                 #
-#          Ensure the correct IP and port are used for both UGPS, and Otter USV Radio/wifi depending method. Check in otter VCS                          #                                                                                                                                                        
+#          Ensure the correct IP and port are used for both UGPS, and Otter USV Radio/wifi depending method. Check in otter VCS                          #  
+#                                     For WiFi, make sure every laptop in process is connected to otternet45 Wifi                                        #                                                                                                               
 ##########################################################################################################################################################
 
 
 
-N = 13333                                                                                             # Number of simulation samples
+N = 13333                                                                                               # Number of simulation samples
 N = 7500
 sampleTime = 0.02                                                                                       # Simulation time per sample. Usually at 0.02, other values could cause instabillity in the simulation
 use_target_coordinates = False                                                                          # To use coordinates as a target or to use a linear path
@@ -46,12 +49,23 @@ animate_path = False                                                            
 N_horizon   = 15                                                                                        # Prediction Horizon e.g. (less than 30 generally for fast updates)
 control_dt  = 0.1                                                                                       # MPC update period (s)
 
+# Disturbances
+wave_disturbance = True
+wind_disturbance = True
+
+# Third order target reference model
+# MAKE SURE THIS IS NEGATIVE FOR DRL AND STATIONARY DYNAMIC TRACKING
+third_order_ref = False
+
+
 
 # When connecting to live otter:
-# Otter USV IPs (radio: 196.168.53.2 : 2009)
+# Otter USV IPs (radio: 196.168.53.2 : 2009) (WiFi: 10.0.5.1 : 2009)
+
 ip = "192.168.53.2"
-#ip = "10.0.5.1"
+ip = "10.0.5.1"
 port = 2009
+#port = 32001
 
 # UGPS ip
 BASE_URL = "http://192.168.2.94/"  
@@ -68,18 +82,19 @@ v_circle = 1.5                                                                  
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
 enable_live_plot = True                                                                                 # Enables live plotting
-ugps_stop_event = None                                                                                  # For threading stop eventt
+ugps_stop_event = None                                                                                  # For threading stop event
 
 
-parameter_list = 3 # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4
+parameter_list = 4 # Tuning parameters, 1 for trial and error, 2 for pole placement wb = 0.5, and 3 for pole placement wb = 0.4, 
+                   # 5 no gains for testing disturbance behavior
 
 
 trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0, "yaw_kp" : 37, "yaw_ki" : 4, "yaw_kd" : 8}
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 25.13, "surge_kd" : 1, "yaw_kp" : 25.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86} # third order trjacectory (>integral surge)
-pp_04 = {"surge_kp" : 14.39, "surge_ki" : 0, "surge_kd" : 60, "yaw_kp" : 30.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
-test_pdi = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
+pd_stationkeeping = {"surge_kp" : 50.39, "surge_ki" : 0, "surge_kd" : 50, "yaw_kp" : 30.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
+test_disturbance = {"surge_kp" : 0, "surge_ki" : 0, "surge_kd" : 0, "yaw_kp" : 0, "yaw_ki" : 0, "yaw_kd" : 0}
 
 if parameter_list == 1:
     pdi = trial_and_error_parameters
@@ -88,7 +103,14 @@ elif parameter_list == 2:
 elif parameter_list == 3:
     pdi = pp_04
 elif parameter_list == 4:
-    pdi = test_pdi
+    pdi = pd_stationkeeping
+elif parameter_list == 5:
+    pdi = test_disturbance
+
+
+# DRL agent path
+DRL_MODEL_PATH = "DRL_control\ppo_saves\stationary_tracking\ppo_otter_checkpoint_station_fin.zip"
+DRL_VECNORM_PATH = "DRL_control\ppo_saves\stationary_tracking\ppo_otter_checkpoint_vecnormalize_station_fin.pkl"
 
 #############################################################################################################################################################################################################################################################
 #                                                                                                                                                                                                                                                           #
@@ -111,7 +133,9 @@ simulator = Otter_simulator.otter_simulator(target_list,
                                             end_when_last_target_reached, 
                                             verbose, 
                                             store_force_file, 
-                                            circular_target)                                            # Creates Simulator object
+                                            circular_target,
+                                            use_waves=wave_disturbance,
+                                            use_wind=wind_disturbance)                                            # Creates Simulator object
 
 
 
@@ -150,8 +174,12 @@ pid = PIDController(
 )
 surge_PID = SurgePIDAdapter(pid)
 yaw_PID   = YawPIDAdapter(pid)
-live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter)                 # Live guidance object
 
+# Live guidance object
+live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter, third_order_ref=third_order_ref)  
+
+# Live DRL agent object
+live_drl = LiveDRLController(live_guidance=live_guidance, model_path=DRL_MODEL_PATH, vecnormalize_path=DRL_VECNORM_PATH, scale_action=False)
 
 #initialize nmpc - model_3dof.py transforms 6dof to 3dof by matrix reduction
 otter_6dof_params = usv_params_6dof()
@@ -164,65 +192,123 @@ nmpc = NMPCControl(
 if use_moving_target == False:
     nmpc.set_mode("stationkeeping")
 
-print("Welcome to the Otter controller simulator and socket")                                                      
+print("Welcome to the Otter controller simulator and socket")
+
 try:
-    option = int(input("Enter option to simulate (1), or connect to the Otter USV (2): "))
+    main_option = int(input("Enter option to simulate (1), or connect to the Otter USV (2): "))
 except ValueError:
     print("You entered an invalid option, running simulation (1).")
-    option = 1
+    main_option = 1
 
-try:
-    ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
-except ValueError:
-    print("Invalid control option, applying PID.")
-    ctrl_option = 2
 
-#apply NMPC if true
-use_nmpc = (ctrl_option == 1)
-live_guidance = Live_guidance.live_guidance(ip=ip, port=port, surge_PID=surge_PID, yaw_PID=yaw_PID, surge_setpoint=target_radius, otter=otter, 
-    nmpc=nmpc,                 # NMPC object (can be ignored)
-    use_nmpc=use_nmpc,         # True for NMPC, False for PID
-    control_dt=control_dt
+live_option = None
+ctrl_option = None
+use_nmpc = False
+
+
+if main_option == 1:
+    try:
+        ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
+    except ValueError:
+        print("Invalid control option, applying PID.")
+        ctrl_option = 2
+
+    use_nmpc = ctrl_option == 1
+
+
+elif main_option == 2:
+    try:
+        live_option = int(input(
+            "Enter: 1 moving target, 2 circular, 3 square, 4 stationary, 5 UGPS, 6 DRL stationary: "
+        ))
+    except ValueError:
+        print("Invalid live option, applying stationary tracking.")
+        live_option = 4
+
+    if live_option != 6:
+        try:
+            ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
+        except ValueError:
+            print("Invalid control option, applying PID.")
+            ctrl_option = 2
+
+        use_nmpc = ctrl_option == 1
+
+
+live_guidance = Live_guidance.live_guidance(
+    ip=ip,
+    port=port,
+    surge_PID=surge_PID,
+    yaw_PID=yaw_PID,
+    surge_setpoint=target_radius,
+    otter=otter,
+    nmpc=nmpc,
+    use_nmpc=use_nmpc,
+    control_dt=control_dt,
+    third_order_ref=third_order_ref
 )
 
 
-# Change to one indexed function?
+live_drl = LiveDRLController(
+    live_guidance=live_guidance,
+    model_path=DRL_MODEL_PATH,
+    vecnormalize_path=DRL_VECNORM_PATH,
+    scale_action=False
+)
+
+
 def _target_tracking():
     live_guidance.target_tracking(start_north, start_east, v_north, v_east)
+
 
 def _circular_tracking():
     live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
 
+
 def _square_tracking():
     live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
+
+
+def _stationary_tracking():
+    live_guidance.stationary_target_tracking(forward_offset=10.0, starboard_offset=5.0)
+
+
+def _drl_stationary_tracking():
+    live_drl.stationary_tracking(forward_offset=10.0, starboard_offset=5.0)
+
 
 def exit_handler():
     if ugps_stop_event is not None:
         ugps_stop_event.set()
-    live_guidance.save_log()
+
+    try:
+        live_guidance.save_log()
+    except Exception:
+        pass
 
 
+def main(main_option, live_option=None):
+    global ugps_stop_event
 
-def main(option):
-    #sim
-    if option == 1:
-        
+    if main_option == 1:
+
         if ctrl_option == 2:
-            [simTime, simData, targetData] = simulator.simulate(N, 
-                                                                sampleTime, 
-                                                                otter, 
-                                                                surge_PID, 
-                                                                yaw_PID,
-                                                                trajectory_reference=True)   # This runs the whole simulation
-            #log_to_csv(simTime, simData, targetData, filename="sim_log_PID.csv", verbose=log_simulation)
+            simTime, simData, targetData = simulator.simulate(
+                N,
+                sampleTime,
+                otter,
+                surge_PID,
+                yaw_PID,
+                trajectory_reference=True
+            )
 
-            plotVehicleStates(simTime, simData, 1)                                                          #
-            plotControls(simTime, simData, otter, 2)                                                        #
-                                                                                                            #
-            plotPosTar2(simTime, simData, 4, targetData, savePlot=True)                                                     # Plotting
-            plotSpeed(simTime, simData, 5) 
+            plotVehicleStates(simTime, simData, 1)
+            plotControls(simTime, simData, otter, 2)
+            plotPosTar2(simTime, simData, 4, targetData, savePlot=True)
+            plotSpeed(simTime, simData, 5)
             plotSurge(simTime, simData, 6)
-            plotYaw(simTime, simData, 7)                                                                  #
+            plotYaw(simTime, simData, 7)
+
             if animate_path:
                 print("Checking data before animation...")
                 print("simData size:", len(simData))
@@ -230,28 +316,25 @@ def main(option):
 
                 plot3D(simData, numDataPoints, FPS, filename, 3)
                 plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
-            # Saves a GIF for 3d animation in the same folder as main
 
             plt.show()
             plt.close()
-
 
         elif ctrl_option == 1:
-            [simTime, simData, targetData] = simulator.simulate_NMPC(
-                                                        N=N,
-                                                        sampleTime=sampleTime,
-                                                        otter=otter,
-                                                        nmpc=nmpc,
-                                                        control_dt=control_dt)
-            #log_to_csv(simTime, simData, targetData, filename="sim_log_nmpc.csv", verbose=log_simulation)
+            simTime, simData, targetData = simulator.simulate_NMPC(
+                N=N,
+                sampleTime=sampleTime,
+                otter=otter,
+                nmpc=nmpc,
+                control_dt=control_dt
+            )
 
-            plotVehicleStates(simTime, simData, 1)                                                          #
-            plotControls(simTime, simData, otter, 2)                                                        #
-                                                                                                            #
-            plotPosTar2(simTime, simData, 4, targetData)                                                    # Plotting
-            #plotSpeed(simTime, simData, 5)
+            plotVehicleStates(simTime, simData, 1)
+            plotControls(simTime, simData, otter, 2)
+            plotPosTar2(simTime, simData, 4, targetData)
             plotSurge(simTime, simData, 6)
-            plotYaw(simTime, simData, 7)                                                                 #
+            plotYaw(simTime, simData, 7)
+
             if animate_path:
                 print("Checking data before animation...")
                 print("simData size:", len(simData))
@@ -259,67 +342,81 @@ def main(option):
 
                 plot3D(simData, numDataPoints, FPS, filename, 3)
                 plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
-            # Saves a GIF for 3d animation in the same folder as main
 
             plt.show()
             plt.close()
-    #live
-    elif option == 2:
+
+    elif main_option == 2:
 
         _target_thread = threading.Thread(target=_target_tracking, args=())
         _target_thread.daemon = True
+
         _circle_thread = threading.Thread(target=_circular_tracking, args=())
         _circle_thread.daemon = True
+
         _square_thread = threading.Thread(target=_square_tracking, args=())
         _square_thread.daemon = True
-               
-        # Some initial values to avoid nmpc crash
-        otter.sorted_values.setdefault("target_north_from_observer", start_north)                               
-        otter.sorted_values.setdefault("target_east_from_observer",  start_east)
+
+        _stationary_thread = threading.Thread(target=_stationary_tracking, args=())
+        _stationary_thread.daemon = True
+
+        _drl_thread = threading.Thread(target=_drl_stationary_tracking, args=())
+        _drl_thread.daemon = True
+
+        otter.sorted_values.setdefault("target_north_from_observer", start_north)
+        otter.sorted_values.setdefault("target_east_from_observer", start_east)
         otter.sorted_values.setdefault("tau_X", 0.0)
-        otter.sorted_values.setdefault("tau_N", 0.0)               
+        otter.sorted_values.setdefault("tau_N", 0.0)
 
-        option = float(input("Enter 1 for target tracking with moving target, 2 for circular motion, 3 for square tracking or 4 for UGPS tracking: "))
-
-        if option == 1:
-            if enable_live_plot:    
+        if live_option == 1:
+            if enable_live_plot:
                 _target_thread.start()
-                print(" Waiting for data")
+                print("Waiting for data")
                 time.sleep(6)
                 p1 = Live_plotter.live_plotter(otter)
                 atexit.register(exit_handler)
             else:
-                live_guidance.target_tracking(start_north, start_east, v_north, v_east)
                 atexit.register(exit_handler)
+                live_guidance.target_tracking(start_north, start_east, v_north, v_east)
 
-        elif option == 2:
+        elif live_option == 2:
             if enable_live_plot:
                 _circle_thread.start()
-                print(" Waiting for data")
+                print("Waiting for data")
                 time.sleep(6)
                 p1 = Live_plotter.live_plotter(otter)
                 atexit.register(exit_handler)
             else:
-                live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
                 atexit.register(exit_handler)
+                live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
 
-        elif option == 3:
+        elif live_option == 3:
             if enable_live_plot:
                 _square_thread.start()
-                print(" Waiting for data")
+                print("Waiting for data")
                 time.sleep(6)
                 p1 = Live_plotter.live_plotter(otter)
                 atexit.register(exit_handler)
             else:
-                live_guidance.square_tracking(start_north, start_east, radius, v_circle)
                 atexit.register(exit_handler)
+                live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
 
-        elif option == 4:
+        elif live_option == 4:
+            if enable_live_plot:
+                _stationary_thread.start()
+                print("Waiting for data")
+                time.sleep(6)
+                p1 = Live_plotter.live_plotter(otter)
+                atexit.register(exit_handler)
+            else:
+                atexit.register(exit_handler)
+                live_guidance.stationary_target_tracking(forward_offset=10.0, starboard_offset=5.0)
 
+        elif live_option == 5:
             ugps_stop_event = threading.Event()
 
             ugps_thread = threading.Thread(
-                target=live_guidance.ugps_reader,  
+                target=live_guidance.ugps_reader,
                 args=(ugps_stop_event, URL_GLOBAL, URL_ACOUSTIC, otter),
                 daemon=True
             )
@@ -338,10 +435,23 @@ def main(option):
                 print("Waiting for data")
                 time.sleep(6)
                 p1 = Live_plotter.live_plotter(otter)
-                
             else:
                 live_guidance.ugps_target_tracking(ugps_stop_event)
 
+        elif live_option == 6:
+            if enable_live_plot:
+                _drl_thread.start()
+                print("Waiting for data")
+                time.sleep(6)
+                p1 = Live_plotter.live_plotter(otter)
+                atexit.register(exit_handler)
+            else:
+                atexit.register(exit_handler)
+                live_drl.stationary_tracking(forward_offset=10.0, starboard_offset=5.0)
+
+        else:
+            print("Invalid live option.")
+
 
 if __name__ == "__main__":
-    main(option)
+    main(main_option, live_option)

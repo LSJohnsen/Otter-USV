@@ -1,39 +1,3 @@
-       
-'''
-    d, u, v, r = distance_to_target, nu[0], nu[1], nu[5] 
-        # d_dot = (prev_distance - d) / self.sampletime
-
-        # change based on actual UOWC system performance 
-        d_opt = 0.1 # optimal tracking radius
-        d_acc = 1.0 # acceptable tracking radius
-
-        # inside acceptable range
-        in_range = np.clip((d_acc - d) / d_acc, 0.0, 1.0)   # normalized to 1 when exactly above
-        outside_range = 1.0 - in_range                      # 0 when close, 1 at boundary+
-        w = outside_range**2   # weight decreases when closer to target     
-
-        # Move toward target when outside range
-        reward += 1.0 * outside_range * (prev_distance - d)
-
-        # Prefer being inside acceptable range
-        reward += 0.5 * in_range
-
-        # Prefer the optimal distance (0.1)
-        reward -= 2.0 * ((d - d_opt) / d_acc)**2
-
-        # Prevent overshoot when close
-        reward -= 0.6 * w * abs(d_dot)
-
-        # slow and stable when close
-        reward -= 0.2 * w * abs(u)
-        reward -= 0.2 * w * abs(v)
-        reward -= 0.15 * w * abs(r)
-
-        # weak heading guidance when far away
-        reward += 0.05 * outside_range * np.cos(heading_error)
-
-        self.last_distance = float(distance_to_target)
-'''
 
 import numpy as np
 import matplotlib.pyplot as plt

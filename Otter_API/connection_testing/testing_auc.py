@@ -29,7 +29,7 @@ def ugps_reader(otter=None):
             lon   = float(g.get("lon", 0.0))
             depth = -float(a.get("z", 0.0))  # z is negative down, make depth positive
 
-            # Local coordinates (relative to master/antenna)
+            # Local coordinates (relative to antenna)
             x = float(a.get("x", 0.0))
             y = float(a.get("y", 0.0))
             z = float(a.get("z", 0.0))

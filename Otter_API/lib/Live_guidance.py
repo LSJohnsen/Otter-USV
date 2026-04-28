@@ -7,10 +7,11 @@ import os
 import requests
 import threading
 import pymap3d as pm
+from lib.gnc import third_order_reference
 
 class live_guidance():
 
-    def __init__(self, ip, port, surge_PID, yaw_PID, surge_setpoint, otter, nmpc=None, use_nmpc=False, control_dt=0.1):
+    def __init__(self, ip, port, surge_PID, yaw_PID, surge_setpoint, otter, nmpc=None, use_nmpc=False, control_dt=0.1, third_order_ref=True):
 
         self.ip = ip
         self.port = port
@@ -25,6 +26,7 @@ class live_guidance():
         self.nmpc = nmpc
         self.use_nmpc = use_nmpc
         self.control_dt = control_dt 
+        self.target_ref = third_order_ref
 
         self.distance_to_target = 0
         self.north_error = 0
@@ -40,7 +42,7 @@ class live_guidance():
         self.total_distance_to_target = 0.0
         self.counter = 0
         self.yaw_setpoint = 0.0 #for pid heading
-        self.last_valid_state = np.zeros(6)
+        self.last_valid_state = None
 
         self._ugps_lock = threading.Lock()
         self._ugps_latest = None  # lat, lon, depth, x, y, z, t
@@ -63,6 +65,7 @@ class live_guidance():
         if not math.isfinite(values):
             return values
 
+        
     # Filter signals to previous value if the new signal is larger than specified difference limit (prevent nmpc crash)
     def _filter_signal(self, new_values, previous_values, difference_limit=None, relative_limit=None):
         if previous_values is None:
@@ -156,17 +159,35 @@ class live_guidance():
         y_raw   = self._confirm_signal("east_from_observer", 0.0)
         psi_raw = self._confirm_signal("current_angle", 0.0)
 
-        v_n_raw = self._confirm_signal("speed_n", 0.0)   # inertial north velocity
-        v_e_raw = self._confirm_signal("speed_e", 0.0)   # inertial east velocity
+        v_n_raw = self._confirm_signal("speed_n", 0.0)
+        v_e_raw = self._confirm_signal("speed_e", 0.0)
         r_raw   = self._confirm_signal("current_yaw_rate", 0.0)
 
-        # Convert inertial velocities to body-frame velocities
+        required = [x_raw, y_raw, psi_raw, v_n_raw, v_e_raw, r_raw]
+
+        # If init data missing, return None so NMPC to skip without crash
+        if any(value is None for value in required):
+            if self.last_valid_state is not None:
+                return self.last_valid_state
+            return None
+
+        x_raw   = float(x_raw)
+        y_raw   = float(y_raw)
+        psi_raw = float(psi_raw)
+        v_n_raw = float(v_n_raw)
+        v_e_raw = float(v_e_raw)
+        r_raw   = float(r_raw)
+
+        # Convert inertial to body-frame
         u_body_raw = math.cos(psi_raw) * v_n_raw + math.sin(psi_raw) * v_e_raw
         v_body_raw = -math.sin(psi_raw) * v_n_raw + math.cos(psi_raw) * v_e_raw
 
-        # Initial state
+        # Initial valid state
         if self.last_valid_state is None:
-            state = np.array([x_raw, y_raw, psi_raw, u_body_raw, v_body_raw, r_raw], dtype=float)
+            state = np.array(
+                [x_raw, y_raw, psi_raw, u_body_raw, v_body_raw, r_raw],
+                dtype=float
+            )
             self.last_valid_state = state
             return state
 
@@ -182,20 +203,27 @@ class live_guidance():
         x = self._filter_signal(x_raw, x_prev, difference_limit=max_pos_change)
         y = self._filter_signal(y_raw, y_prev, difference_limit=max_pos_change)
 
+        # Wrap heading to [-pi, pi]
         psi_difference = (psi_raw - psi_prev + math.pi) % (2 * math.pi) - math.pi
         psi_candidate = psi_prev + psi_difference
-        psi = self._filter_signal(psi_candidate, psi_prev, difference_limit=max_psi_change)
+        psi = self._filter_signal(
+            psi_candidate,
+            psi_prev,
+            difference_limit=max_psi_change
+        )
 
+        # Recompute body velocities using filtered heading
         u_body_raw = math.cos(psi) * v_n_raw + math.sin(psi) * v_e_raw
         v_body_raw = -math.sin(psi) * v_n_raw + math.cos(psi) * v_e_raw
 
-        # limit change to 50% to avoid deprecated signals 
+        # Limit velocity/rate jumps
         u = self._filter_signal(u_body_raw, u_prev, relative_limit=0.5)
         v = self._filter_signal(v_body_raw, v_prev, relative_limit=0.5)
         r = self._filter_signal(r_raw, r_prev, relative_limit=0.5)
 
         state = np.array([x, y, psi, u, v, r], dtype=float)
         self.last_valid_state = state
+
         return state
     
     # UGPS target tracking
@@ -265,6 +293,8 @@ class live_guidance():
                 self.yaw_setpoint = self.current_angle
                 '''
                 # error setpoint from reference model position/velocity/acceleration
+                dt = self.cycletime
+
                 raw_dist = float(np.hypot(self.north_error, self.east_error))
 
                 self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = \
@@ -274,7 +304,8 @@ class live_guidance():
                         self.ref_dist_ddot,
                         raw_dist,
                         self.zeta_ref,
-                        self.omega_n_ref
+                        self.omega_n_ref,
+                        self.cycletime
                     )
 
                 self.distance_to_target = self.ref_dist
@@ -325,13 +356,22 @@ class live_guidance():
                 self.log.to_csv(file_path, sep=';')
 
     #straight simulated target
-    def target_tracking(self, start_north, start_east, v_north, v_east):
+    def target_tracking(self, start_north, start_east, v_north, v_east, use_ref_model=None):
+        if use_ref_model is None:
+            use_ref_model = self.target_ref
         self.otter.establish_connection(self.ip, self.port)
         self.otter.update_values()
+        
 
         self.referance_point = [self.otter.sorted_values["lat"], self.otter.sorted_values["lon"], 0.0]
         self.otter.observer_coordinates = self.referance_point
         self.target_ne_pos = [start_north, start_east]
+        
+        self.ref_dist = float(np.hypot(start_north, start_east))
+        self.ref_dist_dot = 0.0
+        self.ref_dist_ddot = 0.0
+
+        self.update_target_reference(use_ref_model)
 
         current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S:%f")
         self.log = pd.DataFrame([self.otter.sorted_values], index=[current_datetime])
@@ -352,7 +392,16 @@ class live_guidance():
             while True:
                 start_time = time.time()
 
-                
+                # update moving target position first
+                self.target_ne_pos = [
+                    self.target_ne_pos[0] + v_north * self.cycletime,
+                    self.target_ne_pos[1] + v_east  * self.cycletime,
+                ]
+
+                # update errors / distance / yaw BEFORE controller
+                self.update_target_reference(use_ref_model)
+
+                # compute control using updated target values
                 if self.use_nmpc:
                     tau_X, tau_N = self.calculate_forces_nmpc()
                 else:
@@ -370,12 +419,6 @@ class live_guidance():
 
                 self.otter.sorted_values["tau_X"] = tau_X
                 self.otter.sorted_values["tau_N"] = tau_N
-
-                # update moving target position
-                self.target_ne_pos = [
-                    self.target_ne_pos[0] + (v_north / (1 / self.cycletime)),
-                    self.target_ne_pos[1] + (v_east  / (1 / self.cycletime)),
-                ]
 
                 self.otter.sorted_values["target_north_from_observer"] = self.target_ne_pos[0]
                 self.otter.sorted_values["target_east_from_observer"] = self.target_ne_pos[1]
@@ -409,8 +452,12 @@ class live_guidance():
             self.log.to_csv(file_path, sep=';')
 
             time.sleep(10)
+
     #simulated target
-    def circular_tracking(self, start_north, start_east, radius, v):
+    def circular_tracking(self, start_north, start_east, radius, v, use_ref_model=None):
+        if use_ref_model is None:
+            use_ref_model = self.target_ref
+
         self.otter.establish_connection(self.ip, self.port)
         self.otter.update_values()
 
@@ -427,19 +474,45 @@ class live_guidance():
 
         self.function_time = time.time()
 
-        print(f"Starting circular tracking")
+        # initialize target and reference model
+        initial_north = start_north + radius
+        initial_east = start_east
+
+        self.target_ne_pos = [initial_north, initial_east]
+
+        self.ref_dist = float(np.hypot(initial_north, initial_east))
+        self.ref_dist_dot = 0.0
+        self.ref_dist_ddot = 0.0
+
+        self.update_target_reference(use_ref_model)
+
+        print("Starting circular tracking")
+
         try:
             while True:
                 start_time = time.time()
 
+                # update circular target position first
                 omega = v / radius
                 theta = omega * (time.time() - self.function_time)
-                
-                self.target_ne_pos = [start_north + radius * np.cos(theta), start_east + radius * np.sin(theta)]
-                
-                tau_X, tau_N = self.calculate_forces_pid()
+
+                self.target_ne_pos = [
+                    start_north + radius * np.cos(theta),
+                    start_east + radius * np.sin(theta)
+                ]
+
+                # update errors / distance / yaw BEFORE controller
+                self.update_target_reference(use_ref_model)
+
+                # compute control using updated target values
+                if self.use_nmpc:
+                    tau_X, tau_N = self.calculate_forces_nmpc()
+                else:
+                    tau_X, tau_N = self.calculate_forces_pid()
+
                 self.otter.controller_inputs_torque(tau_X, tau_N, self.surge_setpoint)
 
+                # logging
                 self.otter.sorted_values["north_error"] = self.north_error
                 self.otter.sorted_values["east_error"] = self.east_error
                 self.otter.sorted_values["distance_to_target"] = self.distance_to_target
@@ -455,21 +528,18 @@ class live_guidance():
                 current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S:%f")
                 temp_df = pd.DataFrame([self.otter.sorted_values], index=[current_datetime])
 
-                # This makes sure there is no duplicates of datetimes in the log
                 if current_datetime in self.log.index:
                     self.log.loc[current_datetime] = temp_df.loc[current_datetime]
                 else:
                     self.log = pd.concat([self.log, temp_df])
 
-
                 elapsed_time = time.time() - start_time
 
-                self.counter = self.counter + 1
-                self.total_distance_to_target = self.total_distance_to_target + self.distance_to_target
+                self.counter += 1
+                self.total_distance_to_target += self.distance_to_target
 
                 if elapsed_time < self.cycletime:
                     time.sleep(self.cycletime - elapsed_time)
-
 
         except KeyboardInterrupt:
             print("Tracking disabled. Otter is now in drift mode")
@@ -483,8 +553,8 @@ class live_guidance():
             file_path = os.path.join(logs_dir, filename)
             self.log.to_csv(file_path, sep=';')
 
-
             time.sleep(10)
+
     #simulated target
     def square_tracking(self, start_north, start_east, side_length, target_speed):
         self.otter.establish_connection(self.ip, self.port)
@@ -580,6 +650,122 @@ class live_guidance():
 
             time.sleep(10)
 
+
+    def stationary_target_tracking(self, forward_offset=10.0, starboard_offset=5.0):
+        self.otter.establish_connection(self.ip, self.port)
+        self.otter.update_values()
+
+        self.referance_point = [
+            self.otter.sorted_values["lat"],
+            self.otter.sorted_values["lon"],
+            0.0
+        ]
+        self.otter.observer_coordinates = self.referance_point
+
+        psi = self.get_initial_heading()
+
+        # target position relative to vessel heading
+        start_north = (
+            forward_offset * np.cos(psi)
+            - starboard_offset * np.sin(psi)
+        )
+
+        start_east = (
+            forward_offset * np.sin(psi)
+            + starboard_offset * np.cos(psi)
+        )
+
+        self.target_ne_pos = [start_north, start_east]
+
+        # initialize errors once
+        self.north_error = start_north
+        self.east_error = start_east
+        self.distance_to_target = float(np.hypot(start_north, start_east))
+        self.current_angle = float(np.arctan2(self.east_error, self.north_error))
+        self.yaw_setpoint = self.current_angle
+
+        current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S:%f")
+        self.log = pd.DataFrame([self.otter.sorted_values], index=[current_datetime])
+
+        self.otter.controller_inputs_torque(10, 0)
+        time.sleep(2)
+        self.otter.controller_inputs_torque(10, 0)
+        time.sleep(1)
+
+        print(
+            f"Stationary target at N={start_north:.2f} m, E={start_east:.2f} m"
+        )
+
+        try:
+            while True:
+                start_time = time.time()
+
+                #  target stays fixed
+                self.north_error = self.target_ne_pos[0]
+                self.east_error = self.target_ne_pos[1]
+
+                self.distance_to_target = float(np.hypot(self.north_error, self.east_error))
+                self.current_angle = float(np.arctan2(self.east_error, self.north_error))
+                self.yaw_setpoint = self.current_angle
+
+                # control
+                if self.use_nmpc:
+                    state = self.current_state()
+
+                    if state is None:
+                        print("No valid NMPC state -> drift/hold")
+                        self.otter.drift()
+                        time.sleep(0.2)
+                        continue
+
+                    tau_X, tau_N = self.calculate_forces_nmpc()
+                else:
+                    tau_X, tau_N = self.calculate_forces_pid()
+
+                self.otter.controller_inputs_torque(tau_X, tau_N, self.surge_setpoint)
+
+                # logging
+                self.otter.sorted_values["north_error"] = self.north_error
+                self.otter.sorted_values["east_error"] = self.east_error
+                self.otter.sorted_values["distance_to_target"] = self.distance_to_target
+                self.otter.sorted_values["yaw_setpoint"] = self.yaw_setpoint
+                self.otter.sorted_values["current_angle"] = self.current_angle
+                self.otter.sorted_values["tau_X"] = tau_X
+                self.otter.sorted_values["tau_N"] = tau_N
+                self.otter.sorted_values["target_north_from_observer"] = self.target_ne_pos[0]
+                self.otter.sorted_values["target_east_from_observer"] = self.target_ne_pos[1]
+
+                current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S:%f")
+                temp_df = pd.DataFrame([self.otter.sorted_values], index=[current_datetime])
+
+                if current_datetime in self.log.index:
+                    self.log.loc[current_datetime] = temp_df.loc[current_datetime]
+                else:
+                    self.log = pd.concat([self.log, temp_df])
+
+                elapsed_time = time.time() - start_time
+
+                self.counter += 1
+                self.total_distance_to_target += self.distance_to_target
+
+                if elapsed_time < self.cycletime:
+                    time.sleep(self.cycletime - elapsed_time)
+
+        except KeyboardInterrupt:
+            print("Tracking disabled. Otter is now in drift mode")
+            self.otter.drift()
+
+            logs_dir = '../logs'
+            if not os.path.exists(logs_dir):
+                os.makedirs(logs_dir)
+
+            filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + '.csv'
+            file_path = os.path.join(logs_dir, filename)
+            self.log.to_csv(file_path, sep=';')
+
+            time.sleep(10)
+
+
     def calculate_forces_pid(self, ugps=False, ugps_lat=None, ugps_lon=None, ugps_h=None):
         self.otter.update_values()
         n_usv = float(self.otter.sorted_values["north_from_observer"])
@@ -658,15 +844,21 @@ class live_guidance():
         init_state: np.array shape (6,)  -> [x, y, psi, u, v, r]
         target_reference: np.array shape (2,) -> [x_ref, y_ref]
         """
-        init_state = np.asarray(self.current_state(), dtype=float)
-        
+        init_state = self.current_state()
+
+        if init_state is None:
+            print("NMPC: waiting for valid Otter state")
+            return 0.0, 0.0
+
+        init_state = np.asarray(init_state, dtype=float)
+
         if not np.all(np.isfinite(init_state)):
             print("NMPC: non-finite state, skipping control step:", init_state)
             return 0.0, 0.0
-        
+
         target_reference = np.array([
-            self.target_ne_pos[0],    # x_ref (north)
-            self.target_ne_pos[1],    # y_ref (east)
+            self.target_ne_pos[0],
+            self.target_ne_pos[1],
         ], dtype=float)
 
         tau = self.nmpc.solve_control(init_state, target_reference)
@@ -694,38 +886,67 @@ class live_guidance():
             self.log.to_csv(file_path, sep=';')
         except Exception as e:
             print(f"Error when trying to save the log: {e}")
+    
+        # helper function to update target reference through third order reference
+    
+    def update_target_reference(self, use_ref_model):
+        self.north_error = self.target_ne_pos[0]
+        self.east_error = self.target_ne_pos[1]
 
-    #target reference model @Alexander Rambech / Fossen
+        raw_dist = float(np.hypot(self.north_error, self.east_error))
+
+        if use_ref_model:
+            self.ref_dist, self.ref_dist_dot, self.ref_dist_ddot = \
+                self.third_order_reference(
+                    self.ref_dist,
+                    self.ref_dist_dot,
+                    self.ref_dist_ddot,
+                    raw_dist,
+                    self.zeta_ref,
+                    self.omega_n_ref,
+                    self.cycletime
+                )
+            self.distance_to_target = self.ref_dist
+        else:
+            self.distance_to_target = raw_dist
+
+        self.current_angle = float(np.arctan2(self.east_error, self.north_error))
+        self.yaw_setpoint = self.current_angle
+
+    #target reference model @ Fossen
     @staticmethod
-    def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n):
-        x_desired = np.array([x_d, x_d_dot, x_d_ddot])
-        x_reference = np.array([0, 0, x_ref])
-    
+    def third_order_reference(x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n, dt):
+        x = np.array([x_d, x_d_dot, x_d_ddot], dtype=float)
+
         Ad = np.array([
-            [0, 1, 0],
-            [0, 0, 1],
-            [-omega_n**3, -(2*zeta+1)*omega_n**2, -(2*zeta+1)*omega_n]
-        ])
-        Bd = np.array([0, 0, omega_n**3])
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [-omega_n**3,
+            -(2.0*zeta + 1.0)*omega_n**2,
+            -(2.0*zeta + 1.0)*omega_n]
+        ], dtype=float)
+
+        Bd = np.array([0.0, 0.0, omega_n**3], dtype=float)
+
+        x_dot = Ad @ x + Bd * float(x_ref)
+        x_next = x + dt * x_dot
+
+        return float(x_next[0]), float(x_next[1]), float(x_next[2])
     
-        x_d, x_d_dot, x_d_ddot = Ad.dot(x_desired) + Bd.dot(x_reference)
-    
-        return x_d, x_d_dot, x_d_ddot
-    
-    """
-    def third_order_reference(self, x_d, x_d_dot, x_d_ddot, x_ref, zeta, omega_n, dt): with timestep for proper integration
-    x = np.array([x_d, x_d_dot, x_d_ddot], dtype=float)
 
-    Ad = np.array([
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [-omega_n**3, -(2.0*zeta + 1.0)*omega_n**2, -(2.0*zeta + 1.0)*omega_n]
-    ], dtype=float)
 
-    Bd = np.array([0.0, 0.0, omega_n**3], dtype=float)
+    def get_initial_heading(self, max_wait_s=5.0):
+        t0 = time.time()
 
-    x_dot = Ad @ x + Bd * float(x_ref)   # (3,) vector
-    x_next = x + dt * x_dot              # Euler integration
+        while time.time() - t0 < max_wait_s:
+            self.otter.update_values()
 
-    return float(x_next[0]), float(x_next[1]), float(x_next[2])
-    """
+            psi = self._confirm_signal("current_angle", None)
+
+            if psi is not None:
+                return float(psi)
+
+            time.sleep(0.1)
+
+        print("No valid current_angle available. Using psi = 0.0")
+        return 0.0

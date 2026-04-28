@@ -18,6 +18,8 @@ from numba import jit, cuda
 from pathlib import Path
 from lib.Performance_metrics import PerformanceMetrics
 from logs.IO import log_params
+from wave_model1 import WaveModel
+from wind_model import WindModel
 
 class OtterSimDRL():
     def __init__(self, 
@@ -31,7 +33,42 @@ class OtterSimDRL():
                  verbose, 
                  store_force_file, 
                  circular_target, 
-                 circle_radius = 40):
+                 circle_radius = 40,
+                 use_waves=True,
+                 use_wind=True):
+        
+        self.use_waves = use_waves
+        self.use_wind = use_wind
+        self.wave_time = 0.0
+        #generally Hs 0.02-0.3 and tp 1-2 <- shorter waves
+        if self.use_waves:
+            self.wave_model = WaveModel(
+                Hs=0.5,
+                Tp=1.0,
+                mean_dir=0.0,
+                N=12,
+                gain_X=20.0,
+                gain_Y=35.0,
+                gain_N=8.0,
+                spread_std=np.deg2rad(30.0),
+                seed=1,
+            )
+        
+        # check correct speeds based on "calm docking"
+        if self.use_wind:
+            self.wind_model = WindModel(
+                mean_speed=2.0,
+                mean_dir=np.deg2rad(45.0),
+                gust_std=0.5,
+                gust_time_constant=5.0,
+                Cx=0.8,
+                Cy=1.2,
+                Cn=0.25,
+                A_front=0.15,
+                A_side=0.35,
+                L_ref=1.0,
+                seed=1,
+            )
 
         # Variable initializations:
         self.use_target_coordinates   = use_target_coordinates
@@ -717,10 +754,26 @@ class OtterSimDRL():
 
         # State derivatives (with dimension)
         tau_crossflow = crossFlowDrag(self.L, self.B_pont, self.T, nu_r)
+
+
+        
+        # wave forces
+        tau_wave = np.zeros(6)
+        if self.use_waves and self.wave_model is not None:
+            tau_wave = self.wave_model.get_tau_wave(self.wave_time, eta, nu)
+            self.wave_time += sampleTime
+
+        # wind forces
+        tau_wind = np.zeros(6)
+        if self.use_wind and self.wind_model is not None:
+            tau_wind = self.wind_model.get_tau_wind(sampleTime, eta, nu)
+
         sum_tau = (
             tau
             + tau_damp
             + tau_crossflow
+            + tau_wave
+            + tau_wind
             - np.matmul(C, nu_r)
             - np.matmul(self.G, eta)
             + g_0

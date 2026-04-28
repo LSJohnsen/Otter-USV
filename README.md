@@ -26,27 +26,35 @@ All DRL-related work is contained under the `Otter_dl` directory, with simulator
 
 ---
 
-### Master Thesis Contributions
-Builds upon the course foundations and integrates the Otter API with the full simulation and control framework. The thesis introduces significant extensions in control, environment modeling, and learning-based methods.
+## MASTER THESIS CONTRIBUTIONS
 
-Key contributions include:
+Builds upon the course foundations and integrates the Otter API with the full simulation and control framework. The thesis introduces significant extensions in control, environment modeling, system integration, and learning-based methods.
 
-#### Control and Reference Models
-- Updated surge and yaw PI control for target tracking or PD for dynamic positioning
-- Foundations for Nonlinear Model Predictive Control (NMPC)  
+---
+
+### Control and Reference Models
+- Updated surge and yaw PI control for target tracking, and PD control for dynamic positioning  
+- **Nonlinear Model Predictive Control (NMPC)** implementation and framework  
+- **Socket-based interface support for NMPC and DRL controllers**, enabling real-time and external system integration  
 - **Third-order trajectory reference models** for smooth position, velocity, and acceleration profiles  
 
-#### Environmental Modeling
+---
+
+### Environmental Modeling
 - **Wind disturbance model** for simulating external forces acting on the vessel  
 - **Bretschneider wave spectrum model** for realistic irregular sea states and wave-induced disturbances  
 
-#### Deep Reinforcement Learning Enhancements
+---
+
+### Deep Reinforcement Learning Enhancements
 - Custom **reward functions** for navigation and tracking  
 - Tuned **DRL hyperparameters** for stable and efficient learning  
 - **Training randomization strategies** to improve robustness and generalization  
 - Extended DRL-compatible simulator with improved step interaction and state handling  
 
-#### System Integration
+---
+
+### System Integration
 - Unified framework combining API, simulator, and control methods  
 - Improved data structures and state management for analysis and debugging  
 - Scenario handling and pattern generation for testing  
@@ -61,11 +69,11 @@ Supports traditional PID-based surge and yaw controllers, built using the API’
 ### Deep Reinforcement Learning (DRL)
 The DRL framework includes:
 
-- Extended observation space for improved learning 
+- Extended observation space for improved learning  
 - Vectorized environments for parallel training  
 - Completely new, custom reward shaping for control objectives  
 - Policy structures compatible with modern RL libraries  
-- Step-based simulation interface for training
+- Step-based simulation interface for training  
 - Improvements to simulation setup for randomized training for adaptive control  
 
 ### Nonlinear Model Predictive Control (NMPC)

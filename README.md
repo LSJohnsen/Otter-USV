@@ -107,7 +107,7 @@ The API acts as the central layer connecting control algorithms with the underly
 
 ## Simulator Foundation
 
-All simulation components are based on the **Python Vehicle Simulator (Autumn 2023)** by Thor I. Fossen.  
+All simulation components are based on the **Python Vehicle Simulator (Autumn 2023)** & **Handbook of Marine Craft Hydrodynamics and Motion Control (2021)** by Thor I. Fossen  
 
 The simulator provides:
 

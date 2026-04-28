@@ -61,10 +61,12 @@ Supports traditional PID-based surge and yaw controllers, built using the API’
 ### Deep Reinforcement Learning (DRL)
 The DRL framework includes:
 
+- Extended observation space for improved learning 
 - Vectorized environments for parallel training  
-- Custom reward shaping for control objectives  
+- Completely new, custom reward shaping for control objectives  
 - Policy structures compatible with modern RL libraries  
-- Step-based simulation interface for training  
+- Step-based simulation interface for training
+- Improvements to simulation setup for randomized training for adaptive control  
 
 ### Nonlinear Model Predictive Control (NMPC)
 Contains the foundations needed for NMPC experiments on the Otter USV model. Cost functions, horizon updates, and constraints compatible with the dynamics from Fossen’s simulator reduced to 3DOF.

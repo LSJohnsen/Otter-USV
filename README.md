@@ -32,7 +32,7 @@ Builds upon the course foundations and integrates the Otter API with the full si
 Key contributions include:
 
 #### Control and Reference Models
-- Surge and yaw PID control for target tracking  
+- Updated surge and yaw PI control for target tracking or PD for dynamic positioning
 - Foundations for Nonlinear Model Predictive Control (NMPC)  
 - **Third-order trajectory reference models** for smooth position, velocity, and acceleration profiles  
 

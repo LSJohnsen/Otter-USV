@@ -73,11 +73,11 @@ URL_GLOBAL   = BASE_URL + "/api/v1/position/global"
 URL_ACOUSTIC = BASE_URL + "/api/v1/position/acoustic/filtered"
 
 # path options
-start_north = -20                                                                                       # Target north position from referance point
-start_east = -20                                                                                        # Target east position from referance point
+start_north = -5                                                                                       # Target north position from referance point
+start_east = -5                                                                                        # Target east position from referance point
 v_north = 0                                                                                             # Moving target speed north (m/s)
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
-radius = 40                                                                                             # If tracking a circular motion
+radius = 10                                                                                             # If tracking a circular motion
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
@@ -93,7 +93,7 @@ trial_and_error_parameters = {"surge_kp" : 12, "surge_ki" : 0.7, "surge_kd" : 0,
 pp_05 = {"surge_kp" : 22.48, "surge_ki" : 3.92, "surge_kd" : 11.62, "yaw_kp" : 23.72, "yaw_ki" : 4.13, "yaw_kd" : 15.08}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 3.13, "surge_kd" : 0, "yaw_kp" : 15.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86}
 pp_04 = {"surge_kp" : 14.39, "surge_ki" : 25.13, "surge_kd" : 1, "yaw_kp" : 25.21, "yaw_ki" : 0.7, "yaw_kd" : 1.86} # third order trjacectory (>integral surge)
-pd_stationkeeping = {"surge_kp" : 50.39, "surge_ki" : 0, "surge_kd" : 50, "yaw_kp" : 30.21, "yaw_ki" : 0.7, "yaw_kd" : 0}
+pd_stationkeeping = {"surge_kp" : 50.39, "surge_ki" : 0, "surge_kd" : 50, "yaw_kp" : 30.21, "yaw_ki" : 0.7, "yaw_kd" : 0} # surge: kp 50, disturbance kp60
 test_disturbance = {"surge_kp" : 0, "surge_ki" : 0, "surge_kd" : 0, "yaw_kp" : 0, "yaw_ki" : 0, "yaw_kd" : 0}
 
 if parameter_list == 1:
@@ -179,7 +179,7 @@ yaw_PID   = YawPIDAdapter(pid)
 live_guidance = Live_guidance.live_guidance(ip, port, surge_PID, yaw_PID, target_radius, otter, third_order_ref=third_order_ref)  
 
 # Live DRL agent object
-live_drl = LiveDRLController(live_guidance=live_guidance, model_path=DRL_MODEL_PATH, vecnormalize_path=DRL_VECNORM_PATH, scale_action=False)
+live_drl = LiveDRLController(live_guidance=live_guidance, model_path=DRL_MODEL_PATH, vecnormalize_path=DRL_VECNORM_PATH, scale_action=True)
 
 #initialize nmpc - model_3dof.py transforms 6dof to 3dof by matrix reduction
 otter_6dof_params = usv_params_6dof()
@@ -195,45 +195,36 @@ if use_moving_target == False:
 print("Welcome to the Otter controller simulator and socket")
 
 try:
-    main_option = int(input("Enter option to simulate (1), or connect to the Otter USV (2): "))
+    main_option = int(input("Choose environment: simulation (1), live Otter (2): "))
 except ValueError:
-    print("You entered an invalid option, running simulation (1).")
+    print("Invalid option, running simulation.")
     main_option = 1
 
+try:
+    ctrl_option = int(input("Choose controller: PID (1), NMPC (2), DRL (3): "))
+except ValueError:
+    print("Invalid controller, applying PID.")
+    ctrl_option = 1
 
-live_option = None
-ctrl_option = None
-use_nmpc = False
+use_nmpc = ctrl_option == 2
+use_drl = ctrl_option == 3
 
+live_source_option = None
+path_option = None
 
-if main_option == 1:
+if main_option == 2:
     try:
-        ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
+        live_source_option = int(input("Choose target source: simulated target (1), UGPS target (2): "))
     except ValueError:
-        print("Invalid control option, applying PID.")
-        ctrl_option = 2
+        print("Invalid target source, using simulated target.")
+        live_source_option = 1
 
-    use_nmpc = ctrl_option == 1
-
-
-elif main_option == 2:
-    try:
-        live_option = int(input(
-            "Enter: 1 moving target, 2 circular, 3 square, 4 stationary, 5 UGPS, 6 DRL stationary: "
-        ))
-    except ValueError:
-        print("Invalid live option, applying stationary tracking.")
-        live_option = 4
-
-    if live_option != 6:
+    if live_source_option == 1:
         try:
-            ctrl_option = int(input("Choose control system to use: NMPC (1), PID (2): "))
+            path_option = int(input("Choose path: straight (1), circular (2), square (3), stationary (4): "))
         except ValueError:
-            print("Invalid control option, applying PID.")
-            ctrl_option = 2
-
-        use_nmpc = ctrl_option == 1
-
+            print("Invalid path, using stationary.")
+            path_option = 4
 
 live_guidance = Live_guidance.live_guidance(
     ip=ip,
@@ -248,51 +239,88 @@ live_guidance = Live_guidance.live_guidance(
     third_order_ref=third_order_ref
 )
 
-
 live_drl = LiveDRLController(
     live_guidance=live_guidance,
     model_path=DRL_MODEL_PATH,
     vecnormalize_path=DRL_VECNORM_PATH,
-    scale_action=False
+    scale_action=True
 )
 
 
-def _target_tracking():
-    live_guidance.target_tracking(start_north, start_east, v_north, v_east)
+def run_live_straight():
+    if use_drl:
+        live_drl.straight_tracking(start_north, start_east, v_north, v_east)
+    else:
+        live_guidance.target_tracking(start_north, start_east, v_north, v_east)
 
 
-def _circular_tracking():
-    live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
+def run_live_circular():
+    if use_drl:
+        live_drl.circular_tracking(start_north, start_east, radius, v_circle)
+    else:
+        live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
 
 
-def _square_tracking():
-    live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
+def run_live_square():
+    if use_drl:
+        live_drl.square_tracking(start_north, start_east, side_length, side_target_speed)
+    else:
+        live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
 
 
-def _stationary_tracking():
-    live_guidance.stationary_target_tracking(forward_offset=10.0, starboard_offset=5.0)
-
-
-def _drl_stationary_tracking():
-    live_drl.stationary_tracking(forward_offset=10.0, starboard_offset=5.0)
+def run_live_stationary():
+    if use_drl:
+        live_drl.stationary_tracking(forward_offset=10.0, starboard_offset=5.0)
+    else:
+        live_guidance.stationary_target_tracking(forward_offset=10.0, starboard_offset=5.0)
 
 
 def exit_handler():
+    global ugps_stop_event
+
     if ugps_stop_event is not None:
         ugps_stop_event.set()
 
     try:
-        live_guidance.save_log()
+        if use_drl:
+            live_drl._save_log()
+        else:
+            live_guidance.save_log()
     except Exception:
         pass
 
 
-def main(main_option, live_option=None):
+def plot_simulation_results(simTime, simData, targetData, save_position_plot=False):
+    plotVehicleStates(simTime, simData, 1)
+    plotControls(simTime, simData, otter, 2)
+    plotPosTar2(simTime, simData, 4, targetData, savePlot=save_position_plot)
+    plotSurge(simTime, simData, 6)
+    plotYaw(simTime, simData, 7)
+
+    if not save_position_plot:
+        plotSpeed(simTime, simData, 5)
+
+    if animate_path:
+        print("Checking data before animation...")
+        print("simData size:", len(simData))
+        print("targetData size:", len(targetData))
+
+        plot3D(simData, numDataPoints, FPS, filename, 3)
+        plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
+
+    plt.show()
+    plt.close()
+
+
+def main(main_option):
     global ugps_stop_event
 
     if main_option == 1:
+        if ctrl_option == 3:
+            print("DRL simulation is not implemented in this main script, see drl_control/Otter_dl, or otter_simulator_DRL for sim logic.")
+            return
 
-        if ctrl_option == 2:
+        if ctrl_option == 1:
             simTime, simData, targetData = simulator.simulate(
                 N,
                 sampleTime,
@@ -301,26 +329,9 @@ def main(main_option, live_option=None):
                 yaw_PID,
                 trajectory_reference=True
             )
+            plot_simulation_results(simTime, simData, targetData, save_position_plot=True)
 
-            plotVehicleStates(simTime, simData, 1)
-            plotControls(simTime, simData, otter, 2)
-            plotPosTar2(simTime, simData, 4, targetData, savePlot=True)
-            plotSpeed(simTime, simData, 5)
-            plotSurge(simTime, simData, 6)
-            plotYaw(simTime, simData, 7)
-
-            if animate_path:
-                print("Checking data before animation...")
-                print("simData size:", len(simData))
-                print("targetData size:", len(targetData))
-
-                plot3D(simData, numDataPoints, FPS, filename, 3)
-                plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
-
-            plt.show()
-            plt.close()
-
-        elif ctrl_option == 1:
+        elif ctrl_option == 2:
             simTime, simData, targetData = simulator.simulate_NMPC(
                 N=N,
                 sampleTime=sampleTime,
@@ -328,91 +339,23 @@ def main(main_option, live_option=None):
                 nmpc=nmpc,
                 control_dt=control_dt
             )
+            plot_simulation_results(simTime, simData, targetData)
 
-            plotVehicleStates(simTime, simData, 1)
-            plotControls(simTime, simData, otter, 2)
-            plotPosTar2(simTime, simData, 4, targetData)
-            plotSurge(simTime, simData, 6)
-            plotYaw(simTime, simData, 7)
-
-            if animate_path:
-                print("Checking data before animation...")
-                print("simData size:", len(simData))
-                print("targetData size:", len(targetData))
-
-                plot3D(simData, numDataPoints, FPS, filename, 3)
-                plot2D(simData, numDataPoints, FPS, "./2D_animation.gif", 6, targetData)
-
-            plt.show()
-            plt.close()
+        else:
+            print("Invalid controller option.")
 
     elif main_option == 2:
-
-        _target_thread = threading.Thread(target=_target_tracking, args=())
-        _target_thread.daemon = True
-
-        _circle_thread = threading.Thread(target=_circular_tracking, args=())
-        _circle_thread.daemon = True
-
-        _square_thread = threading.Thread(target=_square_tracking, args=())
-        _square_thread.daemon = True
-
-        _stationary_thread = threading.Thread(target=_stationary_tracking, args=())
-        _stationary_thread.daemon = True
-
-        _drl_thread = threading.Thread(target=_drl_stationary_tracking, args=())
-        _drl_thread.daemon = True
-
         otter.sorted_values.setdefault("target_north_from_observer", start_north)
         otter.sorted_values.setdefault("target_east_from_observer", start_east)
         otter.sorted_values.setdefault("tau_X", 0.0)
         otter.sorted_values.setdefault("tau_N", 0.0)
 
-        if live_option == 1:
-            if enable_live_plot:
-                _target_thread.start()
-                print("Waiting for data")
-                time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
-                atexit.register(exit_handler)
-            else:
-                atexit.register(exit_handler)
-                live_guidance.target_tracking(start_north, start_east, v_north, v_east)
+        atexit.register(exit_handler)
 
-        elif live_option == 2:
-            if enable_live_plot:
-                _circle_thread.start()
-                print("Waiting for data")
-                time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
-                atexit.register(exit_handler)
-            else:
-                atexit.register(exit_handler)
-                live_guidance.circular_tracking(start_north, start_east, radius, v_circle)
+        if live_source_option == 2:
+            if use_drl:
+                print("UGPS tracking is currently implemented through live_guidance, not LiveDRLController.")
 
-        elif live_option == 3:
-            if enable_live_plot:
-                _square_thread.start()
-                print("Waiting for data")
-                time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
-                atexit.register(exit_handler)
-            else:
-                atexit.register(exit_handler)
-                live_guidance.square_tracking(start_north, start_east, side_length, side_target_speed)
-
-        elif live_option == 4:
-            if enable_live_plot:
-                _stationary_thread.start()
-                print("Waiting for data")
-                time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
-                atexit.register(exit_handler)
-            else:
-                atexit.register(exit_handler)
-                live_guidance.stationary_target_tracking(forward_offset=10.0, starboard_offset=5.0)
-
-        elif live_option == 5:
             ugps_stop_event = threading.Event()
 
             ugps_thread = threading.Thread(
@@ -428,30 +371,45 @@ def main(main_option, live_option=None):
             )
 
             ugps_thread.start()
-            atexit.register(exit_handler)
 
             if enable_live_plot:
                 tracking_thread.start()
                 print("Waiting for data")
                 time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
+                Live_plotter.live_plotter(otter)
             else:
                 live_guidance.ugps_target_tracking(ugps_stop_event)
 
-        elif live_option == 6:
+        elif live_source_option == 1:
+            path_map = {
+                1: run_live_straight,
+                2: run_live_circular,
+                3: run_live_square,
+                4: run_live_stationary,
+            }
+
+            selected_function = path_map.get(path_option)
+
+            if selected_function is None:
+                print("Invalid path option.")
+                return
+
             if enable_live_plot:
-                _drl_thread.start()
+                tracking_thread = threading.Thread(target=selected_function, daemon=True)
+                tracking_thread.start()
+
                 print("Waiting for data")
                 time.sleep(6)
-                p1 = Live_plotter.live_plotter(otter)
-                atexit.register(exit_handler)
+                Live_plotter.live_plotter(otter)
             else:
-                atexit.register(exit_handler)
-                live_drl.stationary_tracking(forward_offset=10.0, starboard_offset=5.0)
+                selected_function()
 
         else:
-            print("Invalid live option.")
+            print("Invalid live target source option.")
+
+    else:
+        print("Invalid main option.")
 
 
 if __name__ == "__main__":
-    main(main_option, live_option)
+    main(main_option)

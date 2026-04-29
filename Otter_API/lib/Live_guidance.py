@@ -7,7 +7,6 @@ import os
 import requests
 import threading
 import pymap3d as pm
-from lib.gnc import third_order_reference
 
 class live_guidance():
 
@@ -54,16 +53,24 @@ class live_guidance():
         # test zeta/omega for surge reference
         self.zeta_ref = 0.9
         self.omega_n_ref = 0.6
+
+        self.nmpc_state_initialized = False
+
+        self.otter_lock = threading.Lock()
             
     # filter signals by signals are floats and a finite values
-    def _confirm_signal(self, key, default=0.0):
-        values = self.otter.sorted_values.get(key, default)
+    def _confirm_signal(self, key, default=None):
+        value = self.otter.sorted_values.get(key, default)
+
         try:
-            values = float(values)
+            value = float(value)
         except (TypeError, ValueError):
             return default
-        if not math.isfinite(values):
-            return values
+
+        if not math.isfinite(value):
+            return default
+
+        return value
 
         
     # Filter signals to previous value if the new signal is larger than specified difference limit (prevent nmpc crash)
@@ -154,16 +161,44 @@ class live_guidance():
     def current_state(self):
         self.otter.update_values()
 
+
         # Raw measurements
-        x_raw   = self._confirm_signal("north_from_observer", 0.0)
-        y_raw   = self._confirm_signal("east_from_observer", 0.0)
-        psi_raw = self._confirm_signal("current_angle", 0.0)
+        x_raw   = self._confirm_signal("north_from_observer")
+        y_raw   = self._confirm_signal("east_from_observer")
+        psi_raw = self._get_heading_signal()
 
-        v_n_raw = self._confirm_signal("speed_n", 0.0)
-        v_e_raw = self._confirm_signal("speed_e", 0.0)
-        r_raw   = self._confirm_signal("current_yaw_rate", 0.0)
+        v_n_raw = self._confirm_signal("speed_n")
+        v_e_raw = self._confirm_signal("speed_e")
+        r_raw = self._confirm_signal("current_rotational_velocities_3")
 
-        required = [x_raw, y_raw, psi_raw, v_n_raw, v_e_raw, r_raw]
+        if r_raw is None:
+            if self.last_valid_state is not None:
+                psi_prev = self.last_valid_state[2]
+                dpsi = (psi_raw - psi_prev + math.pi) % (2 * math.pi) - math.pi
+                r_raw = dpsi / self.cycletime
+            else:
+                r_raw = 0.0
+        else:
+            r_raw = float(r_raw)
+
+
+        debug_values = {
+            "north_from_observer": x_raw,
+            "east_from_observer": y_raw,
+            "heading": psi_raw,
+            "speed_n": v_n_raw,
+            "speed_e": v_e_raw,
+            "yaw_rate": r_raw,
+        }
+
+        missing = [name for name, value in debug_values.items() if value is None]
+    
+        if missing:
+            print("missing state values:", missing)
+            print("Raw state debug:", debug_values)
+
+        required = [x_raw, y_raw, psi_raw, v_n_raw, v_e_raw]
+
 
         # If init data missing, return None so NMPC to skip without crash
         if any(value is None for value in required):
@@ -840,10 +875,22 @@ class live_guidance():
 
     def calculate_forces_nmpc(self):
         """
-        from nmpc formulation: solve_control(self, init_state, target_reference):
+        solve_control(init_state, target_reference)
+
         init_state: np.array shape (6,)  -> [x, y, psi, u, v, r]
         target_reference: np.array shape (2,) -> [x_ref, y_ref]
         """
+
+        # Initialize observer reference once before using NMPC state feedback
+        if not getattr(self, "nmpc_state_initialized", False):
+            initialized = self.initialize_nmpc_state_reference()
+
+            if not initialized:
+                print("NMPC: waiting for observer reference initialization")
+                return 0.0, 0.0
+
+            self.nmpc_state_initialized = True
+
         init_state = self.current_state()
 
         if init_state is None:
@@ -861,8 +908,18 @@ class live_guidance():
             self.target_ne_pos[1],
         ], dtype=float)
 
+        if not np.all(np.isfinite(target_reference)):
+            print("NMPC: invalid target reference:", target_reference)
+            return 0.0, 0.0
+
         tau = self.nmpc.solve_control(init_state, target_reference)
-        tau_X, tau_N = float(tau[0]), float(tau[2])
+        print("NMPC state:", init_state)
+        print("NMPC target:", target_reference)
+        print("NMPC tau:", tau)
+
+        tau_X = float(tau[0])
+        tau_N = float(tau[2])
+
         return tau_X, tau_N
 
     # get target ned position in live tracking 
@@ -934,6 +991,26 @@ class live_guidance():
         return float(x_next[0]), float(x_next[1]), float(x_next[2])
     
 
+    def initialize_nmpc_state_reference(self):
+        self.otter.establish_connection(self.ip, self.port)
+        self.otter.update_values()
+
+        lat = self.otter.sorted_values.get("lat")
+        lon = self.otter.sorted_values.get("lon")
+
+        if lat is None or lon is None:
+            print("NMPC: waiting for GPS reference initialization")
+            return False
+
+        self.referance_point = [lat, lon, 0.0]
+        self.otter.observer_coordinates = self.referance_point
+
+        # Give observer one update cycle to compute local N/E values
+        self.otter.update_values()
+
+        print("NMPC observer reference initialized:", self.referance_point)
+        return True
+
 
     def get_initial_heading(self, max_wait_s=5.0):
         t0 = time.time()
@@ -950,3 +1027,20 @@ class live_guidance():
 
         print("No valid current_angle available. Using psi = 0.0")
         return 0.0
+    
+    def _get_heading_signal(self):
+        # prefer IMU/yaw
+        psi = self._confirm_signal("current_orientation_3")
+        if psi is not None:
+            return psi
+
+        # fallback to course over ground but only works when moving
+        cog = self._confirm_signal("current_course_over_ground")
+        if cog is not None:
+            return math.radians(cog)
+
+        # fallback to previous heading
+        if self.last_valid_state is not None:
+            return self.last_valid_state[2]
+
+        return None

@@ -1,0 +1,253 @@
+Date : 2026-05-11 22:14:08
+Directory : c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API
+Total : 174 files,  605446 codes, 5659 comments, 4902 blanks, all 616007 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| CSV        |         78 |    589,819 |          0 |         78 |    589,897 |
+| Python     |         59 |     10,385 |      1,777 |      3,766 |     15,928 |
+| C++        |         31 |      5,053 |      3,521 |        999 |      9,573 |
+| PowerShell |          1 |        108 |        360 |         35 |        503 |
+| Batch      |          2 |         40 |          1 |         17 |         58 |
+| YAML       |          1 |         35 |          0 |          5 |         40 |
+| Properties |          1 |          5 |          0 |          1 |          6 |
+| Dotenv     |          1 |          1 |          0 |          1 |          2 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                            | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                               |        174 |    605,446 |      5,659 |      4,902 |    616,007 |
+| . (Files)                                                                                                                       |         12 |      1,726 |        275 |        524 |      2,525 |
+| DRL_control                                                                                                                     |         23 |    454,008 |        278 |        685 |    454,971 |
+| DRL_control (Files)                                                                                                             |          6 |      2,205 |        274 |        636 |      3,115 |
+| DRL_control\IAE_logs                                                                                                            |         11 |    130,719 |          4 |         43 |    130,766 |
+| DRL_control\ppo_saves                                                                                                           |          6 |    321,084 |          0 |          6 |    321,090 |
+| DRL_control\ppo_saves (Files)                                                                                                   |          2 |    100,992 |          0 |          2 |    100,994 |
+| DRL_control\ppo_saves\stationary_actuatorpenalty                                                                                |          2 |    188,852 |          0 |          2 |    188,854 |
+| DRL_control\ppo_saves\straight_tracking                                                                                         |          2 |     31,240 |          0 |          2 |     31,242 |
+| casadi_control                                                                                                                  |          7 |      1,030 |        209 |        398 |      1,637 |
+| casadi_control (Files)                                                                                                          |          5 |        854 |        185 |        350 |      1,389 |
+| casadi_control\lib                                                                                                              |          2 |        176 |         24 |         48 |        248 |
+| config                                                                                                                          |          1 |         35 |          0 |          5 |         40 |
+| connection_testing                                                                                                              |          2 |         61 |          4 |         16 |         81 |
+| hardware in the loop                                                                                                            |          2 |     15,040 |          0 |         31 |     15,071 |
+| lib                                                                                                                             |         20 |      4,944 |        968 |      1,861 |      7,773 |
+| logs                                                                                                                            |         72 |    123,396 |         43 |        330 |    123,769 |
+| logs (Files)                                                                                                                    |         25 |     10,417 |         43 |        283 |     10,743 |
+| logs\Otter logs 07.03.2024                                                                                                      |         25 |     10,423 |          0 |         25 |     10,448 |
+| logs\Otter logs 07.03.2024\logs                                                                                                 |         25 |     10,423 |          0 |         25 |     10,448 |
+| logs\Otter logs 22.03.2024                                                                                                      |          5 |      5,022 |          0 |          5 |      5,027 |
+| logs\Otter logs 22.03.2024\plots                                                                                                |          5 |      5,022 |          0 |          5 |      5,027 |
+| logs\sim_logs                                                                                                                   |         17 |     97,534 |          0 |         17 |     97,551 |
+| logs\sim_logs\20260511_160516                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_160654                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_160916                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161039                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161213                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161407                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161850                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_162116                                                                                                   |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\20260511_162358                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_162516                                                                                                   |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\mpc_sim_station_dist                                                                                              |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\mpc_sim_station_nodist                                                                                            |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\mpn_sim_track_nodist                                                                                              |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\pid_sim_station_dist_param4                                                                                       |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\pid_sim_station_nodist_param4                                                                                     |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\pid_sim_track_dist                                                                                                |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\pid_sim_track_nodist                                                                                              |          1 |      5,002 |          0 |          1 |      5,003 |
+| sb3_env                                                                                                                         |         35 |      5,206 |      3,882 |      1,052 |     10,140 |
+| sb3_env (Files)                                                                                                                 |          1 |          5 |          0 |          1 |          6 |
+| sb3_env\Include                                                                                                                 |         31 |      5,053 |      3,521 |        999 |      9,573 |
+| sb3_env\Include\site                                                                                                            |         31 |      5,053 |      3,521 |        999 |      9,573 |
+| sb3_env\Include\site\python3.11                                                                                                 |         31 |      5,053 |      3,521 |        999 |      9,573 |
+| sb3_env\Include\site\python3.11\pygame                                                                                          |         31 |      5,053 |      3,521 |        999 |      9,573 |
+| sb3_env\Include\site\python3.11\pygame (Files)                                                                                  |         19 |      1,096 |        386 |        206 |      1,688 |
+| sb3_env\Include\site\python3.11\pygame\include                                                                                  |         12 |      3,957 |      3,135 |        793 |      7,885 |
+| sb3_env\Scripts                                                                                                                 |          3 |        148 |        361 |         52 |        561 |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                                        | language   | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\.env                                                                            | Dotenv     |          1 |          0 |          1 |          2 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_10obs_station_dist.csv                                 | CSV        |      7,382 |          0 |          1 |      7,383 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_10obs.csv                                      | CSV        |     17,152 |          0 |          1 |     17,153 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_8obs.csv                                       | CSV        |      6,666 |          0 |          1 |      6,667 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_station_nodist.csv                                     | CSV        |      5,599 |          0 |          1 |      5,600 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_straight_dist.csv                                      | CSV        |     28,514 |          0 |          1 |     28,515 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\log_plot.py                                                | Python     |         93 |          4 |         33 |        130 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_10obs_station_dist.csv                              | CSV        |      7,382 |          0 |          1 |      7,383 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_10bs.csv                                    | CSV        |     17,152 |          0 |          1 |     17,153 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_8obs.csv                                    | CSV        |      6,666 |          0 |          1 |      6,667 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_station_nodist.csv                                  | CSV        |      5,599 |          0 |          1 |      5,600 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_straight_dist.csv                                   | CSV        |     28,514 |          0 |          1 |     28,515 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_dl.py                                                         | Python     |      1,081 |        111 |        321 |      1,513 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_simulator_DRL.py                                              | Python     |        562 |        110 |        207 |        879 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\__init__.py                                                         | Python     |          1 |          0 |          2 |          3 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\monte_carlo.py                                                      | Python     |         53 |         22 |         19 |         94 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\iae_training_progress.csv                                 | CSV        |     50,496 |          0 |          1 |     50,497 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\reward_training_progress.csv                              | CSV        |     50,496 |          0 |          1 |     50,497 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\iae_training_progress.csv      | CSV        |     94,426 |          0 |          1 |     94,427 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\reward_training_progress.csv   | CSV        |     94,426 |          0 |          1 |     94,427 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\iae_10obs_straight_dist_progress.csv    | CSV        |     15,620 |          0 |          1 |     15,621 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\reward_10obs_straight_dist_progress.csv | CSV        |     15,620 |          0 |          1 |     15,621 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\reward_callback_plot.py                                             | Python     |         33 |          0 |          6 |         39 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\reward_plots.py                                                     | Python     |        475 |         31 |         81 |        587 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_api.py                                                                    | Python     |        207 |         60 |         98 |        365 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_simulator.py                                                              | Python     |        655 |         99 |        203 |        957 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\__init__.py                                                                     | Python     |          0 |          0 |          1 |          1 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\MPC_control.py                                                   | Python     |        295 |         77 |        130 |        502 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\__init__.py                                                      | Python     |          4 |          0 |          1 |          5 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\casadi_sim.py                                                    | Python     |        321 |         52 |        105 |        478 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\cost_plots.py                                                    | Python     |        184 |         47 |         91 |        322 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\lib\casadi_utils.py                                              | Python     |         49 |          5 |         20 |         74 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\lib\usv_params.py                                                | Python     |        127 |         19 |         28 |        174 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\model_3dof.py                                                    | Python     |         50 |          9 |         23 |         82 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\config\6DOF_params.yaml                                                         | YAML       |         35 |          0 |          5 |         40 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\connection_testing\test_socket_connection.py                                    | Python     |         15 |          0 |          6 |         21 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\connection_testing\testing_auc.py                                               | Python     |         46 |          4 |         10 |         60 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\hardware in the loop\csv_to_otter.py                                            | Python     |         38 |          0 |         30 |         68 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\hardware in the loop\force_array.csv                                            | CSV        |     15,002 |          0 |          1 |     15,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Connector.py                                                                | Python     |        242 |         57 |         99 |        398 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Control.py                                                                  | Python     |        199 |         47 |        112 |        358 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Control_no_mapping.py                                                       | Python     |        275 |        145 |        145 |        565 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_DRL.py                                                                 | Python     |        492 |         30 |        169 |        691 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_guidance.py                                                            | Python     |        865 |        140 |        295 |      1,300 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_plotter.py                                                             | Python     |        189 |         48 |         62 |        299 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Cascade.py                                                              | Python     |        154 |         64 |         52 |        270 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Controller_test_v2.py                                                   | Python     |         44 |          8 |         34 |         86 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Controller_v3.py                                                        | Python     |         96 |         11 |         31 |        138 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Performance_metrics.py                                                      | Python     |         30 |          4 |         12 |         46 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\__init__.py                                                                 | Python     |          0 |          0 |          1 |          1 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\gnc.py                                                                      | Python     |        149 |        158 |         81 |        388 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\live_DRL_decoupled.py                                                       | Python     |        394 |        110 |        160 |        664 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plotTimeSeries.py                                                           | Python     |        367 |         58 |        125 |        550 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_comparative_from_csv.py                                                | Python     |        267 |         30 |         81 |        378 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_experiment_from_csv.py                                                 | Python     |        385 |          1 |        119 |        505 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_sim_from_log.py                                                        | Python     |        542 |         40 |        197 |        779 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_wave_forces.py                                                         | Python     |        114 |          3 |         32 |        149 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_wind_forces.py                                                         | Python     |        126 |         14 |         53 |        193 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\throttle_map_v2_noneg.csv                                                   | CSV        |         14 |          0 |          1 |         15 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\local_server.py                                                                 | Python     |         30 |          3 |         13 |         46 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_1.csv                                                  | CSV        |        871 |          0 |          1 |        872 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_2.csv                                                  | CSV        |        797 |          0 |          1 |        798 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_general_1.csv                                               | CSV        |        808 |          0 |          1 |        809 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_dist.csv                                                   | CSV        |        285 |          0 |          1 |        286 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_general.csv                                                | CSV        |        335 |          0 |          1 |        336 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\IO.py                                                                      | Python     |         28 |          2 |         14 |         44 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\NMPC_station_currentbest.csv                                               | CSV        |      1,395 |          0 |          1 |      1,396 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_11-56-14.csv                         | CSV        |        358 |          0 |          1 |        359 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_11-59-57.csv                         | CSV        |         32 |          0 |          1 |         33 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_12-07-03.csv                         | CSV        |        119 |          0 |          1 |        120 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_14-56-47.csv                         | CSV        |         41 |          0 |          1 |         42 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-17-09.csv                         | CSV        |        308 |          0 |          1 |        309 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-19-24.csv                         | CSV        |        326 |          0 |          1 |        327 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-23-02.csv                         | CSV        |        372 |          0 |          1 |        373 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-24-54.csv                         | CSV        |        652 |          0 |          1 |        653 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-27-52.csv                         | CSV        |        839 |          0 |          1 |        840 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-29-59.csv                         | CSV        |         64 |          0 |          1 |         65 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-31-22.csv                         | CSV        |        368 |          0 |          1 |        369 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-33-17.csv                         | CSV        |        365 |          0 |          1 |        366 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-36-45.csv                         | CSV        |        920 |          0 |          1 |        921 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-39-14.csv                         | CSV        |        745 |          0 |          1 |        746 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-41-40.csv                         | CSV        |        781 |          0 |          1 |        782 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-43-42.csv                         | CSV        |        388 |          0 |          1 |        389 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-46-08.csv                         | CSV        |        760 |          0 |          1 |        761 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-47-40.csv                         | CSV        |        355 |          0 |          1 |        356 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-53-00.csv                         | CSV        |        396 |          0 |          1 |        397 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-54-44.csv                         | CSV        |        460 |          0 |          1 |        461 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-55-39.csv                         | CSV        |         72 |          0 |          1 |         73 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-57-15.csv                         | CSV        |        282 |          0 |          1 |        283 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-59-36.csv                         | CSV        |        531 |          0 |          1 |        532 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_16-01-31.csv                         | CSV        |        110 |          0 |          1 |        111 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_16-04-12.csv                         | CSV        |        779 |          0 |          1 |        780 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-25-05.csv                        | CSV        |        802 |          0 |          1 |        803 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-31-34.csv                        | CSV        |        957 |          0 |          1 |        958 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-34-35.csv                        | CSV        |        920 |          0 |          1 |        921 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-37-49.csv                        | CSV        |        842 |          0 |          1 |        843 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-45-31.csv                        | CSV        |      1,501 |          0 |          1 |      1,502 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\PID_Stationeeping_1_TAEP_22kp.csv                                          | CSV        |      1,783 |          0 |          1 |      1,784 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_1D_2x_from_csv.py                                                     | Python     |         32 |          1 |         23 |         56 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_1D_from_csv.py                                                        | Python     |         45 |         12 |         24 |         81 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_2D_from_csv.py                                                        | Python     |         22 |          0 |         12 |         34 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_all.py                                                                | Python     |         20 |          4 |         14 |         38 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_control_forces.py                                                     | Python     |         33 |          1 |         26 |         60 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_distance_to_target.py                                                 | Python     |         30 |          1 |         25 |         56 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_ship_target_path.py                                                   | Python     |         23 |          0 |         15 |         38 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_surge_velocity.py                                                     | Python     |         96 |         17 |         33 |        146 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_thruster_speed.py                                                     | Python     |         33 |          1 |         26 |         60 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_yaw_velocity.py                                                       | Python     |         30 |          1 |         27 |         58 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\animate.py                                                                 | Python     |         45 |          0 |         28 |         73 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\log.csv                                                                    | CSV        |        776 |          0 |          1 |        777 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_stationkeeping.csv                                                   | CSV        |        997 |          0 |          1 |        998 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_straightline.csv                                                     | CSV        |        383 |          0 |          1 |        384 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc2_station_circling2m.csv                                               | CSV        |      1,216 |          0 |          1 |      1,217 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc_straight_080526.csv                                                   | CSV        |        330 |          0 |          1 |        331 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160516\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160654\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160916\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161039\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161213\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161407\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161850\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162116\sim_log_NMPC.csv                                  | CSV        |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162358\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162516\sim_log_NMPC.csv                                  | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_dist\sim_log_NMPC.csv                             | CSV        |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_nodist\sim_log_NMPC.csv                           | CSV        |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpn_sim_track_nodist\sim_log_NMPC.csv                             | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_dist_param4\sim_log_PID.csv                       | CSV        |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_nodist_param4\sim_log_PID.csv                     | CSV        |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_dist\sim_log_PID.csv                                | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_nodist\sim_log_PID.csv                              | CSV        |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\test.py                                                                    | Python     |          4 |          3 |          4 |         11 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\main.py                                                                         | Python     |        364 |         33 |        115 |        512 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\monte_carlo_results.csv                                                         | CSV        |        138 |          0 |          1 |        139 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_blit_info.h                             | C++        |         19 |          1 |          2 |         22 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_camera.h                                | C++        |          5 |         18 |          4 |         27 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_pygame.h                                | C++        |        244 |         88 |         43 |        375 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_surface.h                               | C++        |          5 |         22 |          4 |         31 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\camera.h                                 | C++        |        173 |         26 |         20 |        219 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\font.h                                   | C++        |          9 |          1 |          6 |         16 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\freetype.h                               | C++        |         67 |         29 |         19 |        115 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\_pygame.h                        | C++        |        322 |        503 |        125 |        950 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\bitmask.h                        | C++        |         80 |         66 |         26 |        172 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgcompat.h                       | C++        |         75 |          3 |         25 |        103 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgimport.h                       | C++        |         38 |         15 |         15 |         68 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgplatform.h                     | C++        |         63 |          9 |         12 |         84 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame.h                         | C++        |          4 |         27 |          4 |         35 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_bufferproxy.h             | C++        |         19 |         23 |         15 |         57 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_font.h                    | C++        |         17 |         22 |         12 |         51 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_freetype.h                | C++        |         14 |         19 |         10 |         43 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_mask.h                    | C++        |         17 |         17 |         12 |         46 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_mixer.h                   | C++        |         31 |         21 |         20 |         72 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\sse2neon.h                       | C++        |      3,277 |      2,410 |        517 |      6,204 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\mask.h                                   | C++        |          5 |          0 |          3 |          8 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\mixer.h                                  | C++        |          9 |          1 |          5 |         15 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\palette.h                                | C++        |         93 |         25 |          6 |        124 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgarrinter.h                             | C++        |         20 |          2 |          5 |         27 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgbufferproxy.h                          | C++        |          5 |          0 |          3 |          8 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgcompat.h                               | C++        |         16 |          4 |          8 |         28 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgopengl.h                               | C++        |         13 |          3 |          5 |         21 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgplatform.h                             | C++        |         17 |          2 |          5 |         24 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pygame.h                                 | C++        |          5 |         24 |          4 |         33 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\scrap.h                                  | C++        |         33 |         99 |         16 |        148 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\simd_blitters.h                          | C++        |         68 |         10 |          7 |         85 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\surface.h                                | C++        |        290 |         31 |         41 |        362 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\Activate.ps1                                                    | PowerShell |        108 |        360 |         35 |        503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\activate.bat                                                    | Batch      |         24 |          1 |         10 |         35 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\deactivate.bat                                                  | Batch      |         16 |          0 |          7 |         23 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\pyvenv.cfg                                                              | Properties |          5 |          0 |          1 |          6 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\simple_light_plot.py                                                            | Python     |         24 |          5 |          9 |         38 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\version_check.py                                                                | Python     |         91 |         48 |         21 |        160 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wave_model.py                                                                   | Python     |         70 |          6 |         20 |         96 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wave_model1.py                                                                  | Python     |         83 |          7 |         24 |        114 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wind_model.py                                                                   | Python     |         63 |         14 |         18 |         95 |
+| Total                                                                                                                           |            |    605,446 |      5,659 |      4,902 |    616,007 |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

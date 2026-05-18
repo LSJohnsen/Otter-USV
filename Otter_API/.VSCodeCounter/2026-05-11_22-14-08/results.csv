@@ -1,0 +1,176 @@
+"filename", "language", "Python", "YAML", "Dotenv", "Properties", "CSV", "Batch", "C++", "PowerShell", "comment", "blank", "total"
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\.env", "Dotenv", 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 2
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_10obs_station_dist.csv", "CSV", 0, 0, 0, 0, 7382, 0, 0, 0, 0, 1, 7383
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_10obs.csv", "CSV", 0, 0, 0, 0, 17152, 0, 0, 0, 0, 1, 17153
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_8obs.csv", "CSV", 0, 0, 0, 0, 6666, 0, 0, 0, 0, 1, 6667
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_station_nodist.csv", "CSV", 0, 0, 0, 0, 5599, 0, 0, 0, 0, 1, 5600
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_straight_dist.csv", "CSV", 0, 0, 0, 0, 28514, 0, 0, 0, 0, 1, 28515
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\log_plot.py", "Python", 93, 0, 0, 0, 0, 0, 0, 0, 4, 33, 130
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_10obs_station_dist.csv", "CSV", 0, 0, 0, 0, 7382, 0, 0, 0, 0, 1, 7383
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_10bs.csv", "CSV", 0, 0, 0, 0, 17152, 0, 0, 0, 0, 1, 17153
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_8obs.csv", "CSV", 0, 0, 0, 0, 6666, 0, 0, 0, 0, 1, 6667
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_station_nodist.csv", "CSV", 0, 0, 0, 0, 5599, 0, 0, 0, 0, 1, 5600
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_straight_dist.csv", "CSV", 0, 0, 0, 0, 28514, 0, 0, 0, 0, 1, 28515
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_dl.py", "Python", 1081, 0, 0, 0, 0, 0, 0, 0, 111, 321, 1513
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_simulator_DRL.py", "Python", 562, 0, 0, 0, 0, 0, 0, 0, 110, 207, 879
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\__init__.py", "Python", 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\monte_carlo.py", "Python", 53, 0, 0, 0, 0, 0, 0, 0, 22, 19, 94
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\iae_training_progress.csv", "CSV", 0, 0, 0, 0, 50496, 0, 0, 0, 0, 1, 50497
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\reward_training_progress.csv", "CSV", 0, 0, 0, 0, 50496, 0, 0, 0, 0, 1, 50497
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\iae_training_progress.csv", "CSV", 0, 0, 0, 0, 94426, 0, 0, 0, 0, 1, 94427
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\reward_training_progress.csv", "CSV", 0, 0, 0, 0, 94426, 0, 0, 0, 0, 1, 94427
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\iae_10obs_straight_dist_progress.csv", "CSV", 0, 0, 0, 0, 15620, 0, 0, 0, 0, 1, 15621
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\reward_10obs_straight_dist_progress.csv", "CSV", 0, 0, 0, 0, 15620, 0, 0, 0, 0, 1, 15621
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\reward_callback_plot.py", "Python", 33, 0, 0, 0, 0, 0, 0, 0, 0, 6, 39
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\reward_plots.py", "Python", 475, 0, 0, 0, 0, 0, 0, 0, 31, 81, 587
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_api.py", "Python", 207, 0, 0, 0, 0, 0, 0, 0, 60, 98, 365
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_simulator.py", "Python", 655, 0, 0, 0, 0, 0, 0, 0, 99, 203, 957
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\__init__.py", "Python", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\MPC_control.py", "Python", 295, 0, 0, 0, 0, 0, 0, 0, 77, 130, 502
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\__init__.py", "Python", 4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\casadi_sim.py", "Python", 321, 0, 0, 0, 0, 0, 0, 0, 52, 105, 478
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\cost_plots.py", "Python", 184, 0, 0, 0, 0, 0, 0, 0, 47, 91, 322
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\lib\casadi_utils.py", "Python", 49, 0, 0, 0, 0, 0, 0, 0, 5, 20, 74
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\lib\usv_params.py", "Python", 127, 0, 0, 0, 0, 0, 0, 0, 19, 28, 174
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\model_3dof.py", "Python", 50, 0, 0, 0, 0, 0, 0, 0, 9, 23, 82
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\config\6DOF_params.yaml", "YAML", 0, 35, 0, 0, 0, 0, 0, 0, 0, 5, 40
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\connection_testing\test_socket_connection.py", "Python", 15, 0, 0, 0, 0, 0, 0, 0, 0, 6, 21
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\connection_testing\testing_auc.py", "Python", 46, 0, 0, 0, 0, 0, 0, 0, 4, 10, 60
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\hardware in the loop\csv_to_otter.py", "Python", 38, 0, 0, 0, 0, 0, 0, 0, 0, 30, 68
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\hardware in the loop\force_array.csv", "CSV", 0, 0, 0, 0, 15002, 0, 0, 0, 0, 1, 15003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Connector.py", "Python", 242, 0, 0, 0, 0, 0, 0, 0, 57, 99, 398
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Control.py", "Python", 199, 0, 0, 0, 0, 0, 0, 0, 47, 112, 358
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Control_no_mapping.py", "Python", 275, 0, 0, 0, 0, 0, 0, 0, 145, 145, 565
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_DRL.py", "Python", 492, 0, 0, 0, 0, 0, 0, 0, 30, 169, 691
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_guidance.py", "Python", 865, 0, 0, 0, 0, 0, 0, 0, 140, 295, 1300
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_plotter.py", "Python", 189, 0, 0, 0, 0, 0, 0, 0, 48, 62, 299
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Cascade.py", "Python", 154, 0, 0, 0, 0, 0, 0, 0, 64, 52, 270
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Controller_test_v2.py", "Python", 44, 0, 0, 0, 0, 0, 0, 0, 8, 34, 86
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\PID_Controller_v3.py", "Python", 96, 0, 0, 0, 0, 0, 0, 0, 11, 31, 138
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Performance_metrics.py", "Python", 30, 0, 0, 0, 0, 0, 0, 0, 4, 12, 46
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\__init__.py", "Python", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\gnc.py", "Python", 149, 0, 0, 0, 0, 0, 0, 0, 158, 81, 388
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\live_DRL_decoupled.py", "Python", 394, 0, 0, 0, 0, 0, 0, 0, 110, 160, 664
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plotTimeSeries.py", "Python", 367, 0, 0, 0, 0, 0, 0, 0, 58, 125, 550
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_comparative_from_csv.py", "Python", 267, 0, 0, 0, 0, 0, 0, 0, 30, 81, 378
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_experiment_from_csv.py", "Python", 385, 0, 0, 0, 0, 0, 0, 0, 1, 119, 505
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_sim_from_log.py", "Python", 542, 0, 0, 0, 0, 0, 0, 0, 40, 197, 779
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_wave_forces.py", "Python", 114, 0, 0, 0, 0, 0, 0, 0, 3, 32, 149
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_wind_forces.py", "Python", 126, 0, 0, 0, 0, 0, 0, 0, 14, 53, 193
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\throttle_map_v2_noneg.csv", "CSV", 0, 0, 0, 0, 14, 0, 0, 0, 0, 1, 15
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\local_server.py", "Python", 30, 0, 0, 0, 0, 0, 0, 0, 3, 13, 46
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_1.csv", "CSV", 0, 0, 0, 0, 871, 0, 0, 0, 0, 1, 872
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_2.csv", "CSV", 0, 0, 0, 0, 797, 0, 0, 0, 0, 1, 798
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_general_1.csv", "CSV", 0, 0, 0, 0, 808, 0, 0, 0, 0, 1, 809
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_dist.csv", "CSV", 0, 0, 0, 0, 285, 0, 0, 0, 0, 1, 286
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_general.csv", "CSV", 0, 0, 0, 0, 335, 0, 0, 0, 0, 1, 336
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\IO.py", "Python", 28, 0, 0, 0, 0, 0, 0, 0, 2, 14, 44
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\NMPC_station_currentbest.csv", "CSV", 0, 0, 0, 0, 1395, 0, 0, 0, 0, 1, 1396
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_11-56-14.csv", "CSV", 0, 0, 0, 0, 358, 0, 0, 0, 0, 1, 359
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_11-59-57.csv", "CSV", 0, 0, 0, 0, 32, 0, 0, 0, 0, 1, 33
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_12-07-03.csv", "CSV", 0, 0, 0, 0, 119, 0, 0, 0, 0, 1, 120
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_14-56-47.csv", "CSV", 0, 0, 0, 0, 41, 0, 0, 0, 0, 1, 42
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-17-09.csv", "CSV", 0, 0, 0, 0, 308, 0, 0, 0, 0, 1, 309
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-19-24.csv", "CSV", 0, 0, 0, 0, 326, 0, 0, 0, 0, 1, 327
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-23-02.csv", "CSV", 0, 0, 0, 0, 372, 0, 0, 0, 0, 1, 373
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-24-54.csv", "CSV", 0, 0, 0, 0, 652, 0, 0, 0, 0, 1, 653
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-27-52.csv", "CSV", 0, 0, 0, 0, 839, 0, 0, 0, 0, 1, 840
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-29-59.csv", "CSV", 0, 0, 0, 0, 64, 0, 0, 0, 0, 1, 65
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-31-22.csv", "CSV", 0, 0, 0, 0, 368, 0, 0, 0, 0, 1, 369
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-33-17.csv", "CSV", 0, 0, 0, 0, 365, 0, 0, 0, 0, 1, 366
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-36-45.csv", "CSV", 0, 0, 0, 0, 920, 0, 0, 0, 0, 1, 921
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-39-14.csv", "CSV", 0, 0, 0, 0, 745, 0, 0, 0, 0, 1, 746
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-41-40.csv", "CSV", 0, 0, 0, 0, 781, 0, 0, 0, 0, 1, 782
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-43-42.csv", "CSV", 0, 0, 0, 0, 388, 0, 0, 0, 0, 1, 389
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-46-08.csv", "CSV", 0, 0, 0, 0, 760, 0, 0, 0, 0, 1, 761
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-47-40.csv", "CSV", 0, 0, 0, 0, 355, 0, 0, 0, 0, 1, 356
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-53-00.csv", "CSV", 0, 0, 0, 0, 396, 0, 0, 0, 0, 1, 397
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-54-44.csv", "CSV", 0, 0, 0, 0, 460, 0, 0, 0, 0, 1, 461
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-55-39.csv", "CSV", 0, 0, 0, 0, 72, 0, 0, 0, 0, 1, 73
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-57-15.csv", "CSV", 0, 0, 0, 0, 282, 0, 0, 0, 0, 1, 283
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_15-59-36.csv", "CSV", 0, 0, 0, 0, 531, 0, 0, 0, 0, 1, 532
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_16-01-31.csv", "CSV", 0, 0, 0, 0, 110, 0, 0, 0, 0, 1, 111
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 07.03.2024\logs\2024-03-07_16-04-12.csv", "CSV", 0, 0, 0, 0, 779, 0, 0, 0, 0, 1, 780
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-25-05.csv", "CSV", 0, 0, 0, 0, 802, 0, 0, 0, 0, 1, 803
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-31-34.csv", "CSV", 0, 0, 0, 0, 957, 0, 0, 0, 0, 1, 958
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-34-35.csv", "CSV", 0, 0, 0, 0, 920, 0, 0, 0, 0, 1, 921
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-37-49.csv", "CSV", 0, 0, 0, 0, 842, 0, 0, 0, 0, 1, 843
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Otter logs 22.03.2024\plots\2024-03-22_12-45-31.csv", "CSV", 0, 0, 0, 0, 1501, 0, 0, 0, 0, 1, 1502
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\PID_Stationeeping_1_TAEP_22kp.csv", "CSV", 0, 0, 0, 0, 1783, 0, 0, 0, 0, 1, 1784
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_1D_2x_from_csv.py", "Python", 32, 0, 0, 0, 0, 0, 0, 0, 1, 23, 56
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_1D_from_csv.py", "Python", 45, 0, 0, 0, 0, 0, 0, 0, 12, 24, 81
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_2D_from_csv.py", "Python", 22, 0, 0, 0, 0, 0, 0, 0, 0, 12, 34
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_all.py", "Python", 20, 0, 0, 0, 0, 0, 0, 0, 4, 14, 38
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_control_forces.py", "Python", 33, 0, 0, 0, 0, 0, 0, 0, 1, 26, 60
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_distance_to_target.py", "Python", 30, 0, 0, 0, 0, 0, 0, 0, 1, 25, 56
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_ship_target_path.py", "Python", 23, 0, 0, 0, 0, 0, 0, 0, 0, 15, 38
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_surge_velocity.py", "Python", 96, 0, 0, 0, 0, 0, 0, 0, 17, 33, 146
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_thruster_speed.py", "Python", 33, 0, 0, 0, 0, 0, 0, 0, 1, 26, 60
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\Plot_yaw_velocity.py", "Python", 30, 0, 0, 0, 0, 0, 0, 0, 1, 27, 58
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\animate.py", "Python", 45, 0, 0, 0, 0, 0, 0, 0, 0, 28, 73
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\log.csv", "CSV", 0, 0, 0, 0, 776, 0, 0, 0, 0, 1, 777
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_stationkeeping.csv", "CSV", 0, 0, 0, 0, 997, 0, 0, 0, 0, 1, 998
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_straightline.csv", "CSV", 0, 0, 0, 0, 383, 0, 0, 0, 0, 1, 384
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc2_station_circling2m.csv", "CSV", 0, 0, 0, 0, 1216, 0, 0, 0, 0, 1, 1217
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc_straight_080526.csv", "CSV", 0, 0, 0, 0, 330, 0, 0, 0, 0, 1, 331
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160516\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160654\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160916\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161039\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161213\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161407\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161850\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162116\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 7502, 0, 0, 0, 0, 1, 7503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162358\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162516\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_dist\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 7502, 0, 0, 0, 0, 1, 7503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_nodist\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 7502, 0, 0, 0, 0, 1, 7503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpn_sim_track_nodist\sim_log_NMPC.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_dist_param4\sim_log_PID.csv", "CSV", 0, 0, 0, 0, 7502, 0, 0, 0, 0, 1, 7503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_nodist_param4\sim_log_PID.csv", "CSV", 0, 0, 0, 0, 7502, 0, 0, 0, 0, 1, 7503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_dist\sim_log_PID.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_nodist\sim_log_PID.csv", "CSV", 0, 0, 0, 0, 5002, 0, 0, 0, 0, 1, 5003
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\test.py", "Python", 4, 0, 0, 0, 0, 0, 0, 0, 3, 4, 11
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\main.py", "Python", 364, 0, 0, 0, 0, 0, 0, 0, 33, 115, 512
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\monte_carlo_results.csv", "CSV", 0, 0, 0, 0, 138, 0, 0, 0, 0, 1, 139
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_blit_info.h", "C++", 0, 0, 0, 0, 0, 0, 19, 0, 1, 2, 22
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_camera.h", "C++", 0, 0, 0, 0, 0, 0, 5, 0, 18, 4, 27
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_pygame.h", "C++", 0, 0, 0, 0, 0, 0, 244, 0, 88, 43, 375
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\_surface.h", "C++", 0, 0, 0, 0, 0, 0, 5, 0, 22, 4, 31
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\camera.h", "C++", 0, 0, 0, 0, 0, 0, 173, 0, 26, 20, 219
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\font.h", "C++", 0, 0, 0, 0, 0, 0, 9, 0, 1, 6, 16
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\freetype.h", "C++", 0, 0, 0, 0, 0, 0, 67, 0, 29, 19, 115
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\_pygame.h", "C++", 0, 0, 0, 0, 0, 0, 322, 0, 503, 125, 950
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\bitmask.h", "C++", 0, 0, 0, 0, 0, 0, 80, 0, 66, 26, 172
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgcompat.h", "C++", 0, 0, 0, 0, 0, 0, 75, 0, 3, 25, 103
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgimport.h", "C++", 0, 0, 0, 0, 0, 0, 38, 0, 15, 15, 68
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pgplatform.h", "C++", 0, 0, 0, 0, 0, 0, 63, 0, 9, 12, 84
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame.h", "C++", 0, 0, 0, 0, 0, 0, 4, 0, 27, 4, 35
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_bufferproxy.h", "C++", 0, 0, 0, 0, 0, 0, 19, 0, 23, 15, 57
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_font.h", "C++", 0, 0, 0, 0, 0, 0, 17, 0, 22, 12, 51
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_freetype.h", "C++", 0, 0, 0, 0, 0, 0, 14, 0, 19, 10, 43
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_mask.h", "C++", 0, 0, 0, 0, 0, 0, 17, 0, 17, 12, 46
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\pygame_mixer.h", "C++", 0, 0, 0, 0, 0, 0, 31, 0, 21, 20, 72
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\include\sse2neon.h", "C++", 0, 0, 0, 0, 0, 0, 3277, 0, 2410, 517, 6204
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\mask.h", "C++", 0, 0, 0, 0, 0, 0, 5, 0, 0, 3, 8
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\mixer.h", "C++", 0, 0, 0, 0, 0, 0, 9, 0, 1, 5, 15
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\palette.h", "C++", 0, 0, 0, 0, 0, 0, 93, 0, 25, 6, 124
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgarrinter.h", "C++", 0, 0, 0, 0, 0, 0, 20, 0, 2, 5, 27
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgbufferproxy.h", "C++", 0, 0, 0, 0, 0, 0, 5, 0, 0, 3, 8
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgcompat.h", "C++", 0, 0, 0, 0, 0, 0, 16, 0, 4, 8, 28
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgopengl.h", "C++", 0, 0, 0, 0, 0, 0, 13, 0, 3, 5, 21
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pgplatform.h", "C++", 0, 0, 0, 0, 0, 0, 17, 0, 2, 5, 24
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\pygame.h", "C++", 0, 0, 0, 0, 0, 0, 5, 0, 24, 4, 33
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\scrap.h", "C++", 0, 0, 0, 0, 0, 0, 33, 0, 99, 16, 148
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\simd_blitters.h", "C++", 0, 0, 0, 0, 0, 0, 68, 0, 10, 7, 85
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Include\site\python3.11\pygame\surface.h", "C++", 0, 0, 0, 0, 0, 0, 290, 0, 31, 41, 362
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\Activate.ps1", "PowerShell", 0, 0, 0, 0, 0, 0, 0, 108, 360, 35, 503
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\activate.bat", "Batch", 0, 0, 0, 0, 0, 24, 0, 0, 1, 10, 35
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\Scripts\deactivate.bat", "Batch", 0, 0, 0, 0, 0, 16, 0, 0, 0, 7, 23
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\sb3_env\pyvenv.cfg", "Properties", 0, 0, 0, 5, 0, 0, 0, 0, 0, 1, 6
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\simple_light_plot.py", "Python", 24, 0, 0, 0, 0, 0, 0, 0, 5, 9, 38
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\version_check.py", "Python", 91, 0, 0, 0, 0, 0, 0, 0, 48, 21, 160
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wave_model.py", "Python", 70, 0, 0, 0, 0, 0, 0, 0, 6, 20, 96
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wave_model1.py", "Python", 83, 0, 0, 0, 0, 0, 0, 0, 7, 24, 114
+"c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\wind_model.py", "Python", 63, 0, 0, 0, 0, 0, 0, 0, 14, 18, 95
+"Total", "-", 10385, 35, 1, 5, 589819, 40, 5053, 108, 5659, 4902, 616007

@@ -45,7 +45,9 @@ class otter_simulator():
         self.wave_time = 0.0            # running simulation time for wave phase
         self.use_wind = use_wind
         self.wind_model = None
+        self.dp_reverse_radius = 10
 
+        
         #generally Hs 0.02-0.3 and tp 1-2 <- shorter waves
         if self.use_waves:
             self.wave_model = WaveModel(
@@ -276,7 +278,7 @@ class otter_simulator():
         # total distance throughout simulation (for metrics)
         dist_tot = 0
 
-
+        
         # Main simulation loop
         distanceHistory = 0
         heading_error = 0.0
@@ -326,6 +328,8 @@ class otter_simulator():
                 # self.stationary_target = np.array([x_target, y_target], dtype=float)
                 target_north = self.stationary_target[0]
                 target_east = self.stationary_target[1]
+
+            
 
             # Distance from vessel to active target
             north_distance = target_north - eta[0]
@@ -380,18 +384,25 @@ class otter_simulator():
             if raw_distance <= self.surge_setpoint:
                 self.distance_to_target = 0
                 self.yaw_setpoint = angle
+            elif raw_distance <= 5 and not self.use_moving_target:
+                pass
             else:
                 self.yaw_setpoint = math.atan2(east_distance, north_distance)
 
             heading_error = (self.yaw_setpoint - angle + np.pi) % (2 * np.pi) - np.pi
 
-            if raw_distance < 3.0:
-                if heading_error > np.deg2rad(35):
-                    heading_scale = 0.0
-                elif heading_error > np.deg2rad(15):
-                    heading_scale = 0.3
+            if raw_distance < 5:
+                target_is_behind = abs(heading_error) > (np.pi / 2)
+                if target_is_behind:
+                    heading_scale = 1.0   # reverse zone active, let surge run
                 else:
-                    heading_scale = 1.0
+                    # normal fine-approach scaling
+                    if abs(heading_error) > np.deg2rad(35):
+                        heading_scale = 0.0
+                    elif abs(heading_error) > np.deg2rad(15):
+                        heading_scale = 0.3
+                    else:
+                        heading_scale = 1.0
             else:
                 heading_scale = max(0.0, np.cos(heading_error))
 
@@ -403,7 +414,8 @@ class otter_simulator():
                     self.yaw_setpoint,
                     angle
                 )
-                self.tau_N = yaw_PID.calculate_yaw(
+
+                tau_N_cmd = yaw_PID.calculate_yaw(
                     self.yaw_setpoint,
                     angle,
                     self.surge_setpoint,
@@ -412,79 +424,31 @@ class otter_simulator():
 
                 # reduce surge when heading is poor
                 self.tau_X = tau_X_cmd * heading_scale
+                self.tau_N = tau_N_cmd
 
             else:
                 # hold previous commands between controller updates
                 self.tau_X = self.tau_X
                 self.tau_N = self.tau_N
 
-            self.tau_N = max(min(self.tau_N, self.max_force), -(self.max_force)) #
-                                                                                 #
-            remaining_force = self.max_force - abs(self.tau_N)                   #
-                                                                                 #   Makes sure that the forces are not over saturated and prioritizes yaw movement
-            if self.tau_X > remaining_force:                                     #
-                self.tau_X = remaining_force                                     #
-            elif self.tau_X < -(remaining_force):                                #
-                self.tau_X = -(remaining_force)                                  #
+
+            # Optional broad safety clipping only
+            self.tau_X = np.clip(self.tau_X, -self.max_force, self.max_force)
+            self.tau_N = np.clip(self.tau_N, -self.max_force, self.max_force)
 
 
-            if self.store_force_file:                                            #
-                forces = np.array([self.tau_X, self.tau_N])                      # Stores all the forces in a .csv file
-                self.force_array = np.vstack((self.force_array, forces))         #
+            if self.store_force_file:
+                forces = np.array([self.tau_X, self.tau_N])
+                self.force_array = np.vstack((self.force_array, forces))
 
 
-            # Calculate thruster speeds in rad/s
-            if self.tau_N < 0:
-                n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N * -1)
-                self.tau_N_neg = True
-            else:
-                n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
-                self.tau_N_neg = False
-
-            #throttle_left, throttle_right = otter.otter_control.radS_to_throttle_interpolation(n1, n2)  #
-            #n1, n2 = otter.otter_control.throttle_to_rads_interpolation(throttle_left, throttle_right)  # This is to drive the throttle signals through interpolation which is the case IRL
+            # Signed allocation
+            # controlAllocation must accept signed tau_N and return signed n1, n2
+            n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
 
 
-            if n1 < 0:                                                                                          #
-                #n1 = 0.1                                                                                        #
-
-                self.n1neg = True
-                n1 = n1 * -1
-
-            if n2 < 0:                                                                                          # Makes the thursters unable to go in reverse
-                #n2 = 0.1                                                                                        #
-
-                self.n2neg = True
-                n2 = n2 * -1
-
-           # otter_torques, speed = otter.otter_control.find_closest(f"{n1};{n2}")                              #
-           # n1, n2 = map(float, speed.strip("()").split(';'))                                                  #   2D throttle map, no interpolation
-
-
-            torque_z, torque_x, speed = otter.otter_control.interpolate_force_values(n1, n2, 3)                 #   2D interpolation
-
-            if self.n1neg:
-                n1 = n1 * -1
-                self.n1neg = False
-            if self.n2neg:
-                n2 = n2 * -1
-                self.n2neg = False
-
-            # Uncomment to use interpolated RPM's in simulator
-            #n1 = speed[0]                                                                                       #
-            #n2 = speed[1]                                                                                       #
-
-            if self.tau_N_neg:
-                n1_calc = n2
-                n2_calc = n1
-            else:
-                n1_calc = n1
-                n2_calc = n2
-
-
-
-            # Store the speeds in an array
-            u_control = np.array([n1_calc, n2_calc])
+            # Use signed propeller speeds directly.
+            u_control = np.array([n1, n2], dtype=float)
 
 
             # Store simulation data in simData
@@ -715,7 +679,38 @@ class otter_simulator():
                     nu[0],  nu[1],  nu[5]
                 ], dtype=float)
 
-                # Use fixed position target for station-keeping
+                # Build NMPC target reference:
+                # target_ref = [target_north, target_east, path_heading, target_v_north, target_v_east]
+
+                if self.use_moving_target and not self.circular_target:
+                    v_north = float(self.moving_target_increase[0])
+                    v_east = float(self.moving_target_increase[1])
+
+                    if np.hypot(v_north, v_east) > 1e-6:
+                        path_heading = math.atan2(v_east, v_north)
+                    else:
+                        path_heading = math.atan2(east_distance, north_distance)
+
+                elif self.use_moving_target and self.circular_target:
+                    omega = 1.5 / self.target_radius
+                    theta = omega * asd
+
+                    v_north = -self.target_radius * omega * math.sin(theta)
+                    v_east = self.target_radius * omega * math.cos(theta)
+
+                    if np.hypot(v_north, v_east) > 1e-6:
+                        path_heading = math.atan2(v_east, v_north)
+                    else:
+                        path_heading = math.atan2(east_distance, north_distance)
+
+                else:
+                    # Station-keeping / fixed target
+                    v_north = 0.0
+                    v_east = 0.0
+                    path_heading = math.atan2(east_distance, north_distance)
+
+
+                # Use trajectory-shaped position reference for moving targets if enabled
                 if trajectory_reference and self.use_moving_target:
                     direction = np.array([north_distance, east_distance], dtype=float)
                     norm_dir = np.linalg.norm(direction)
@@ -723,14 +718,30 @@ class otter_simulator():
                     if norm_dir > 1e-6:
                         unit_dir = direction / norm_dir
                         ref_dist_used = min(self.ref_dist, raw_distance)
+
                         target_ref = np.array([
                             eta[0] + ref_dist_used * unit_dir[0],
-                            eta[1] + ref_dist_used * unit_dir[1]
+                            eta[1] + ref_dist_used * unit_dir[1],
+                            path_heading,
+                            v_north,
+                            v_east,
                         ], dtype=float)
                     else:
-                        target_ref = np.array([target_north, target_east], dtype=float)
+                        target_ref = np.array([
+                            target_north,
+                            target_east,
+                            path_heading,
+                            v_north,
+                            v_east,
+                        ], dtype=float)
                 else:
-                    target_ref = np.array([target_north, target_east], dtype=float)
+                    target_ref = np.array([
+                        target_north,
+                        target_east,
+                        path_heading,
+                        v_north,
+                        v_east,
+                    ], dtype=float)
 
 
                 try:
@@ -741,53 +752,25 @@ class otter_simulator():
                     tau_u = last_tau_u
 
             # Hold previous NMPC command between solves
+            # last_tau_u[0] = surge force X [N]
+            # last_tau_u[2] = yaw moment N [Nm]
             self.tau_X = float(last_tau_u[0])
             self.tau_N = float(last_tau_u[2])   # ignore sway force
 
-            # Saturation and allocation
-            self.tau_N = max(min(self.tau_N, self.max_force), -self.max_force)
-            remaining_force = self.max_force - abs(self.tau_N)
-
-            if self.tau_X > remaining_force:
-                self.tau_X = remaining_force
-            elif self.tau_X < -remaining_force:
-                self.tau_X = -remaining_force
+            # safety clipping only
+            # This is not the final actuator constraint; controlAllocation handles coupled feasibility.
+            self.tau_X = np.clip(self.tau_X, -self.max_force, self.max_force)
+            self.tau_N = np.clip(self.tau_N, -self.max_force, self.max_force)
 
             if self.store_force_file:
                 forces = np.array([self.tau_X, self.tau_N])
                 self.force_array = np.vstack((self.force_array, forces))
 
-            if self.tau_N < 0:
-                n1, n2 = otter.controlAllocation(self.tau_X, -self.tau_N)
-                self.tau_N_neg = True
-            else:
-                n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
-                self.tau_N_neg = False
+            # Allocate signed generalized force/moment to signed propeller speeds
+            n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
 
-            if n1 < 0:
-                self.n1neg = True
-                n1 = -n1
-            if n2 < 0:
-                self.n2neg = True
-                n2 = -n2
-
-            torque_z, torque_x, speed = otter.otter_control.interpolate_force_values(n1, n2, 3)
-
-            if self.n1neg:
-                n1 = -n1
-                self.n1neg = False
-            if self.n2neg:
-                n2 = -n2
-                self.n2neg = False
-
-            if self.tau_N_neg:
-                n1_calc = n2
-                n2_calc = n1
-            else:
-                n1_calc = n1
-                n2_calc = n2
-
-            u_control = np.array([n1_calc, n2_calc])
+            # Use signed propeller speeds directly
+            u_control = np.array([n1, n2], dtype=float)
 
 
             # Store data and propagate dynamics

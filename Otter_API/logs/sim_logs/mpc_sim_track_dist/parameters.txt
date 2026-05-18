@@ -1,0 +1,9 @@
+Control_method: NMPC
+IAE_distance: 1297.4457337263557
+IAE_heading: 46.84363276489025
+ISU: 1162216.5377697593
+ISU_normalized: 11619.84140941603
+IAU: 14988.320021013229
+avg_distance_to_target: 12.99890208399795
+reached_target_time: 0.0
+reached_yaw_target_time: 0

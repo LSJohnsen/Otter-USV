@@ -40,35 +40,12 @@ class OtterSimDRL():
         self.use_waves = use_waves
         self.use_wind = use_wind
         self.wave_time = 0.0
-        #generally Hs 0.02-0.3 and tp 1-2 <- shorter waves
-        if self.use_waves:
-            self.wave_model = WaveModel(
-                Hs=0.5,
-                Tp=1.0,
-                mean_dir=0.0,
-                N=12,
-                gain_X=20.0,
-                gain_Y=35.0,
-                gain_N=8.0,
-                spread_std=np.deg2rad(30.0),
-                seed=1,
-            )
-        
-        # check correct speeds based on "calm docking"
-        if self.use_wind:
-            self.wind_model = WindModel(
-                mean_speed=2.0,
-                mean_dir=np.deg2rad(45.0),
-                gust_std=0.5,
-                gust_time_constant=5.0,
-                Cx=0.8,
-                Cy=1.2,
-                Cn=0.25,
-                A_front=0.15,
-                A_side=0.35,
-                L_ref=1.0,
-                seed=1,
-            )
+
+        self.wave_model = None
+        self.wind_model = None
+    
+        # During DRL training, this will be randomized again in each environment reset
+        self.randomize_disturbances(np.random.default_rng(1))
 
         # Variable initializations:
         self.use_target_coordinates   = use_target_coordinates
@@ -264,6 +241,45 @@ class OtterSimDRL():
                         # SIMULATOR TO WORK WITH DRL MODEL USING FORCES AND SEPARATE TIMESTEPS#
                         #######################################################################
 
+
+    def randomize_disturbances(self, rng=None):
+        
+        #Randomize wind and wave models once per episode.
+
+        if rng is None:
+            rng = np.random.default_rng()
+
+        # Reset disturbance time
+        self.wave_time = 0.0
+
+        if self.use_waves:
+            self.wave_model = WaveModel(
+                Hs=float(rng.uniform(0.2, 0.8)),
+                Tp=float(rng.uniform(0.8, 1.6)),
+                mean_dir=float(rng.uniform(-np.pi, np.pi)),
+                N=12,
+                gain_X=20.0,
+                gain_Y=35.0,
+                gain_N=8.0,
+                spread_std=float(np.deg2rad(60.0)),
+                seed=int(rng.integers(0, 1_000_000)),
+            )
+
+        if self.use_wind:
+            self.wind_model = WindModel(
+                mean_speed=float(rng.uniform(0.5, 3.0)),
+                mean_dir=float(rng.uniform(-np.pi, np.pi)),
+                gust_std=float(rng.uniform(0.2, 0.8)),
+                gust_time_constant=float(rng.uniform(3.0, 8.0)),
+                Cx=0.8,
+                Cy=1.2,
+                Cn=0.25,
+                A_front=0.15,
+                A_side=0.35,
+                L_ref=1.0,
+                seed=int(rng.integers(0, 1_000_000)),
+            )
+
     def initial_state(self, eta_initial):
         self.initial_eta = np.array(eta_initial, dtype=float)
 
@@ -302,112 +318,140 @@ class OtterSimDRL():
 
     def simulate_step(self, sampleTime, otter, tau_X, tau_N):
         """
-        One DRL control step of length `sampleTime` (e.g. 0.1 s).
+        One DRL control step of length `sampleTime`.
 
         Internally, the physics and target are advanced with smaller
         integration step dt_phys = 0.02 s, i.e. n_sub = sampleTime / dt_phys
         sub-steps.
         """
 
-        # choose physics step and number of substeps 
-        control_dt = sampleTime          # DRL control period (0.1 s)
-        dt_phys    = 0.02                # integration step (0.02 s)
-        n_sub      = max(1, int(round(control_dt / dt_phys)))  # e.g. 0.1/0.02 = 5
+        # choose physics step and number of substeps
+        control_dt = sampleTime
+        dt_phys = 0.02
+        n_sub = max(1, int(round(control_dt / dt_phys)))
 
-
-        # compute normalized action and forces once per control step 
-        action = np.array([tau_X, tau_N], dtype=float)
-        norm = np.linalg.norm(action)
-
-        if norm > 1.0:
-            action = action / norm
-
-        self.tau_X = action[0] * self.max_force
-        self.tau_N = action[1] * self.max_force / 1.5
+        # Desired generalized force/moment from controller
+        self.tau_X = float(tau_X)
+        self.tau_N = float(tau_N)
 
         if self.store_force_file:
             forces = np.array([self.tau_X, self.tau_N])
             self.force_array = np.vstack((self.force_array, forces))
 
-        # Thruster allocation (once per control interval)
-        if self.tau_N < 0:
-            n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N * -1)
-            self.tau_N_neg = True
-        else:
-            n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
-            self.tau_N_neg = False
+        # Allocate signed generalized forces to signed propeller speeds
+        n1, n2 = otter.controlAllocation(self.tau_X, self.tau_N)
 
-        if n1 < 0:
-            self.n1neg = True
-            n1 = -n1
-        if n2 < 0:
-            self.n2neg = True
-            n2 = -n2
-
-        torque_z, torque_x, speed = otter.otter_control.interpolate_force_values(n1, n2, 3)
-
-        if self.n1neg:
-            n1 = -n1
-            self.n1neg = False
-        if self.n2neg:
-            n2 = -n2
-            self.n2neg = False
-
-        if self.tau_N_neg:
-            n1_calc = n2
-            n2_calc = n1
-        else:
-            n1_calc = n1
-            n2_calc = n2
-
-        u_control = np.array([n1_calc, n2_calc])
+        # Use signed propeller speeds directly
+        u_control = np.array([n1, n2], dtype=float)
 
         # sub-step physics AND target
         for _ in range(n_sub):
+
             # dynamics
             self.nu, self.u_actual = self.dynamics(
                 self.eta, self.nu, self.u_actual, u_control, dt_phys
             )
             self.eta = attitudeEuler(self.eta, self.nu, dt_phys)
 
-            # update circular moving target exactly like PID/NMPC
+            # update moving target
             if self.use_moving_target:
+
                 if self.circular_target:
                     omega = 1.5 / self.target_radius
                     self.asd += dt_phys
                     theta = omega * self.asd
+
                     self.moving_target[0] = (
-                        self.target_circle_start_x + self.target_radius * np.cos(theta)
+                        self.target_circle_start_x
+                        + self.target_radius * np.cos(theta)
                     )
                     self.moving_target[1] = (
-                        self.target_circle_start_y - 20.0 + self.target_radius * np.sin(theta)
+                        self.target_circle_start_y
+                        - 20.0
+                        + self.target_radius * np.sin(theta)
                     )
+
+                elif getattr(self, "waypoint_target", False):
+                    target_pos = np.array(self.moving_target, dtype=float)
+                    waypoint = np.array(self.current_waypoint, dtype=float)
+
+                    direction = waypoint - target_pos
+                    distance_to_waypoint = np.linalg.norm(direction)
+
+                    if distance_to_waypoint <= self.waypoint_acceptance_radius:
+                        waypoint_angle = float(np.random.uniform(-np.pi, np.pi))
+                        waypoint_radius = float(np.random.uniform(10.0, self.waypoint_area_radius))
+
+                        self.current_waypoint = (
+                            target_pos
+                            + np.array([
+                                waypoint_radius * np.cos(waypoint_angle),
+                                waypoint_radius * np.sin(waypoint_angle)
+                            ], dtype=float)
+                        )
+
+                        waypoint = np.array(self.current_waypoint, dtype=float)
+                        direction = waypoint - target_pos
+                        distance_to_waypoint = np.linalg.norm(direction)
+
+                    if distance_to_waypoint > 1e-8:
+                        direction_unit = direction / distance_to_waypoint
+                    else:
+                        direction_unit = np.array([1.0, 0.0], dtype=float)
+
+                    self.moving_target_increase = (
+                        self.waypoint_velocity * direction_unit
+                    )
+
+                    self.moving_target[0] += self.moving_target_increase[0] * dt_phys
+                    self.moving_target[1] += self.moving_target_increase[1] * dt_phys
+
+                elif getattr(self, "zigzag_target", False):
+                    self.zigzag_step_counter += 1
+
+                    if self.zigzag_step_counter >= self.zigzag_period_steps:
+                        self.zigzag_step_counter = 0
+                        self.zigzag_direction *= -1.0
+
+                        zigzag_heading = (
+                            self.zigzag_base_heading
+                            + self.zigzag_direction * self.zigzag_angle
+                        )
+
+                        self.moving_target_increase = np.array([
+                            self.zigzag_velocity * np.cos(zigzag_heading),
+                            self.zigzag_velocity * np.sin(zigzag_heading)
+                        ], dtype=float)
+
+                    self.moving_target[0] += self.moving_target_increase[0] * dt_phys
+                    self.moving_target[1] += self.moving_target_increase[1] * dt_phys
+
                 else:
                     self.moving_target[0] += self.moving_target_increase[0] * dt_phys
                     self.moving_target[1] += self.moving_target_increase[1] * dt_phys
 
-        # compute tracking error after the full control interval 
+        # compute tracking error after the full control interval
         target = self.moving_target
         north_distance = target[0] - self.eta[0]
-        east_distance  = target[1] - self.eta[1]
+        east_distance = target[1] - self.eta[1]
         distance_to_target = np.sqrt(north_distance**2 + east_distance**2)
 
         angle_to_target = np.arctan2(east_distance, north_distance)
-        heading_error   = (angle_to_target - self.eta[5] + np.pi) % (2 * np.pi) - np.pi
+        heading_error = (angle_to_target - self.eta[5] + np.pi) % (2 * np.pi) - np.pi
 
         self.distance_to_target = distance_to_target
         self.yaw_setpoint = angle_to_target
 
-        #  update performance metrics using the control interval dt 
+        # update performance metrics using the control interval dt
         self.metrics.update(
             distance_to_target=distance_to_target,
             heading_error=heading_error,
             u1=self.u_actual[0],
             u2=self.u_actual[1],
-            dt=control_dt,    # integrate over 0.1 s, not 0.02
+            dt=control_dt,
         )
 
-        # keep targetData 
+        # keep targetData
         self.targetData = np.array([self.moving_target[0], self.moving_target[1]])
 
         return (

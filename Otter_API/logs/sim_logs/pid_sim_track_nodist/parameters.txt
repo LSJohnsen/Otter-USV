@@ -1,0 +1,9 @@
+Control_method: PID
+IAE_distance: 1085.073790419332
+IAE_heading: 22.400039737973092
+ISU: 1129741.8069839857
+ISU_normalized: 11295.159038032562
+IAU: 14764.746785652407
+avg_distance_to_target: 11.158960220381907
+reached_target_time: 0.02
+reached_yaw_target_time: 0

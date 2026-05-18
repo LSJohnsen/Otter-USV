@@ -548,3 +548,315 @@ def plotPosTar2(simTime, simData, figNo, targetData, savePlot=False, plotName="t
         outfile = os.path.join(PLOT_DIR, plotName + ".png")
         print(f"Saving plot to: {outfile}")
         plt.savefig(outfile, bbox_inches='tight')
+
+
+"""
+IEEE-publication-style plot for USV target-tracking simulation results.
+
+Dependencies: matplotlib, numpy
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Circle, Polygon
+from matplotlib.lines import Line2D
+from matplotlib.colors import Normalize
+import os
+
+# ---------------------------------------------------------------------------
+# IEEE style helpers
+# ---------------------------------------------------------------------------
+
+IEEE_RC = {
+    # Font
+    "font.family":          "serif",
+    "font.serif":           ["Times New Roman", "Times", "DejaVu Serif"],
+    "font.size":            9,
+    "axes.titlesize":       9,
+    "axes.labelsize":       9,
+    "xtick.labelsize":      8,
+    "ytick.labelsize":      8,
+    "legend.fontsize":      8,
+    # Line widths
+    "axes.linewidth":       0.8,
+    "grid.linewidth":       0.5,
+    "lines.linewidth":      1.0,
+    # Grid
+    "axes.grid":            True,
+    "grid.alpha":           0.4,
+    "grid.linestyle":       "--",
+    # Ticks
+    "xtick.direction":      "in",
+    "ytick.direction":      "in",
+    "xtick.major.size":     3.5,
+    "ytick.major.size":     3.5,
+    "xtick.minor.visible":  False,
+    "ytick.minor.visible":  False,
+    # Figure
+    "figure.dpi":           300,
+    "savefig.dpi":          300,
+    "savefig.bbox":         "tight",
+    "figure.facecolor":     "white",
+    "axes.facecolor":       "white",
+    # Legend
+    "legend.framealpha":    0.9,
+    "legend.edgecolor":     "0.7",
+    "legend.handlelength":  1.8,
+}
+
+# Single-column IEEE figure width ≈ 8.9 cm; double-column ≈ 18.4 cm
+_CM2IN = 1 / 2.54
+
+
+def _cm2in(cm):
+    return cm * _CM2IN
+
+
+# ---------------------------------------------------------------------------
+# Main plotting function
+# ---------------------------------------------------------------------------
+
+def plot_usv_tracking(
+    sim_time: np.ndarray,
+    sim_data: np.ndarray,
+    target_data: np.ndarray,
+    *,
+    n_marks: int = 10,
+    usv_length: float = 2.0,
+    usv_width: float = 1.08,
+    circle_radius: float = 1.0,
+    cmap_name: str = "viridis",
+    fig_width_cm: float = 8.9,
+    fig_height_cm: float = 8.0,
+    save_path: str | None = None,
+    fig_number: int | None = None,
+    show: bool = True,
+) -> plt.Figure:
+    """
+    Plot USV and target trajectories in IEEE publication style.
+
+    Parameters
+    ----------
+    sim_time : (T,) array
+        Simulation time vector [s].
+    sim_data : (T, ≥6) array
+        USV state history. Columns assumed as:
+        [0] north (m), [1] east (m), ..., [5] yaw ψ (rad).
+    target_data : (T, ≥2) array
+        Target state history. Columns: [0] north (m), [1] east (m).
+    n_marks : int
+        Number of position markers spread evenly along both paths.
+    usv_length : float
+        Half-length of the USV triangle marker [m, data units].
+    usv_width : float
+        Half-width of the USV triangle marker [m, data units].
+    circle_radius : float
+        Radius of the target circle marker [m, data units].
+    cmap_name : str
+        Matplotlib colormap name used to encode elapsed time.
+    fig_width_cm : float
+        Figure width in centimetres (8.9 cm = IEEE single column).
+    fig_height_cm : float
+        Figure height in centimetres.
+    save_path : str or None
+        Full file path (incl. extension) to save the figure.
+        ``None`` → figure is not saved.
+    fig_number : int or None
+        Matplotlib figure number. ``None`` lets matplotlib choose.
+    show : bool
+        Call ``plt.show()`` after building the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    """
+
+    # ------------------------------------------------------------------
+    # Data alignment
+    # ------------------------------------------------------------------
+    target_data = np.asarray(target_data)
+    if target_data.ndim == 2 and len(target_data) > 2:
+        target_data = target_data[1:-1]          # trim fence-posts if present
+
+    n = min(len(sim_time), len(sim_data), len(target_data))
+    t         = np.asarray(sim_time[:n]).ravel()
+    usv_n     = np.asarray(sim_data[:n, 0])
+    usv_e     = np.asarray(sim_data[:n, 1])
+    yaw       = np.asarray(sim_data[:n, 5])
+    tar_n     = np.asarray(target_data[:n, 0])
+    tar_e     = np.asarray(target_data[:n, 1])
+
+    t_norm    = (t - t[0]) / (t[-1] - t[0])      # 0 → 1, encodes time
+
+    mark_idx  = np.linspace(0, n - 1, n_marks + 1, dtype=int)
+    mark_cols = t_norm[mark_idx]                  # colour values for markers
+
+    # ------------------------------------------------------------------
+    # Colour-map and normalisation
+    # ------------------------------------------------------------------
+    cmap = plt.get_cmap(cmap_name)
+    norm = Normalize(vmin=0.0, vmax=1.0)
+
+    # ------------------------------------------------------------------
+    # Build figure with IEEE RC params
+    # ------------------------------------------------------------------
+    with plt.rc_context(IEEE_RC):
+        fig = plt.figure(
+            fig_number,
+            figsize=(_cm2in(fig_width_cm), _cm2in(fig_height_cm)),
+        )
+        fig.clf()
+        ax = fig.add_subplot(111)
+
+        # --- paths ---
+        ax.plot(
+            tar_e, tar_n,
+            color="C0", lw=1.0, linestyle="--",
+            label="Target path",
+        )
+        ax.plot(
+            usv_e, usv_n,
+            color="C1", lw=1.0,
+            label="USV path",
+        )
+
+        # --- start / end annotations (small flags) ---
+        for pos_e, pos_n, lbl in [
+            (tar_e[0],  tar_n[0],  "Start"),
+            (tar_e[-1], tar_n[-1], "End"),
+        ]:
+            ax.annotate(
+                lbl,
+                xy=(pos_e, pos_n),
+                xytext=(4, 4), textcoords="offset points",
+                fontsize=6.5, color="C0",
+            )
+
+        # --- target circles ---
+        target_patches = [
+            Circle((e, n), radius=circle_radius)
+            for e, n in zip(tar_e[mark_idx], tar_n[mark_idx])
+        ]
+        pc_target = PatchCollection(
+            target_patches,
+            facecolor=cmap(norm(mark_cols)),
+            edgecolor="black",
+            linewidth=0.6,
+            zorder=3,
+        )
+        ax.add_collection(pc_target)
+
+        # --- USV triangles ---
+        L, W = usv_length, usv_width
+        pts_body = np.array([[L, 0.0], [-L / 2, -W], [-L / 2, W]])
+        usv_patches = []
+        for k, psi in zip(mark_idx, yaw[mark_idx]):
+            c, s = np.cos(psi), np.sin(psi)
+            R_ne = np.array([[c, -s], [s, c]])
+            pts_ne = pts_body @ R_ne.T           # rotate to NE frame
+            pts_plot = np.column_stack(          # convert (N,E) → (E,N) for plot axes
+                (pts_ne[:, 1] + usv_e[k],
+                 pts_ne[:, 0] + usv_n[k])
+            )
+            usv_patches.append(Polygon(pts_plot))
+
+        pc_usv = PatchCollection(
+            usv_patches,
+            facecolor=cmap(norm(mark_cols)),
+            edgecolor="black",
+            linewidth=0.5,
+            zorder=4,
+        )
+        ax.add_collection(pc_usv)
+
+        # --- colourbar (time axis) ---
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cb = fig.colorbar(sm, ax=ax, fraction=0.035, pad=0.04)
+        cb.set_label("Normalised time  $t/T$", fontsize=8)
+        cb.ax.tick_params(labelsize=7)
+        cb.set_ticks([0, 0.25, 0.5, 0.75, 1.0])
+        cb.set_ticklabels(["0", "0.25", "0.50", "0.75", "1.00"])
+
+        # --- axes labels & formatting ---
+        ax.set_xlabel("East (m)")
+        ax.set_ylabel("North (m)")
+        ax.set_aspect("equal", adjustable="box")
+
+        # --- view limits with padding ---
+        all_e = np.concatenate([tar_e, usv_e])
+        all_n = np.concatenate([tar_n, usv_n])
+        span  = max(all_e.ptp(), all_n.ptp())
+        pad   = 0.18 * span
+        ax.set_xlim(all_e.min() - pad, all_e.max() + pad)
+        ax.set_ylim(all_n.min() - pad, all_n.max() + pad)
+
+        # --- legend ---
+        line_handles, line_labels = ax.get_legend_handles_labels()
+        proxy_target = Line2D(
+            [], [], linestyle="None",
+            marker="o", markersize=6,
+            markerfacecolor=cmap(0.5), markeredgecolor="black",
+            markeredgewidth=0.6,
+            label="Target position",
+        )
+        proxy_usv = Line2D(
+            [], [], linestyle="None",
+            marker=(3, 0, 0), markersize=8,
+            markerfacecolor=cmap(0.5), markeredgecolor="black",
+            markeredgewidth=0.6,
+            label="USV position & heading",
+        )
+        ax.legend(
+            handles=line_handles + [proxy_target, proxy_usv],
+            loc="best",
+            framealpha=0.9,
+        )
+
+        fig.tight_layout()
+
+        # --- save ---
+        if save_path is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+            fig.savefig(save_path)
+            print(f"[plot_usv_tracking] Saved → {save_path}")
+
+        if show:
+            plt.show()
+
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Quick self-test  (python plot_usv_tracking.py)
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(42)
+    T   = 400
+    dt  = 0.1
+    t   = np.arange(T) * dt
+
+    # Synthetic target: slow sinusoidal drift
+    tar_n = 10 * np.sin(2 * np.pi * t / (T * dt) * 1.5) + np.linspace(0, 60, T)
+    tar_e = np.linspace(0, 80, T) + 5 * np.cos(2 * np.pi * t / (T * dt) * 2)
+    target = np.column_stack([tar_n, tar_e])
+
+    # Synthetic USV: follows target with a small lag
+    usv_n   = tar_n + rng.normal(0, 0.4, T).cumsum() * 0.05
+    usv_e   = tar_e + rng.normal(0, 0.4, T).cumsum() * 0.05
+    usv_yaw = np.arctan2(np.diff(usv_e, prepend=usv_e[0]),
+                          np.diff(usv_n, prepend=usv_n[0]))
+    sim     = np.column_stack([usv_n, usv_e,
+                               np.zeros((T, 3)),   # surge, sway, heave (unused)
+                               usv_yaw])
+
+    plot_usv_tracking(
+        t, sim, target,
+        n_marks=12,
+        fig_width_cm=9.0,
+        fig_height_cm=8.5,
+        save_path="usv_tracking_demo.png",
+    )

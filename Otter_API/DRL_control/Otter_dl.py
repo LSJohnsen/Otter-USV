@@ -42,7 +42,7 @@ print(f"Using device: {device}")
 simulator_environments = 8                                                                              # Number of simulation environments -> change depending on cpu capacity ~2-16
 wave_function = False                                                                                   # adds a simple eastward wave function
 use_target_coordinates = False                                                                          # To use coordinates as a target or to use a linear path
-use_moving_target = True                                                                                # To use moving target instead of target list (path following)
+use_moving_target = False                                                                               # To use moving target instead of target list (path following)
 target_list = [[0, 10000]]                                                                              # List of targets to use if use_target_coordinates is set to True
 end_when_last_target_reached = True                                                                     # Ends the simulation when the final target is reached
 moving_target_start = [0, 0]                                                                            # Start point of the moving target if use_moving_target is set to True
@@ -52,8 +52,31 @@ verbose = True                                                                  
 store_force_file = False                                                                                # Store the simulated control forces in a .csv file
 circular_target = True                                                                                  # Make the moving target a circle in the simulation
 animate_path = False
-training_timesteps = 100000000                                                                          # Set timesteps (10mil-50mil+ depending on straight/circle)
+training_timesteps = 100000000                                                                          # Set timesteps (or just change success criteria)
 log_results = False                                                                                     # log sim to csv, false when training
+
+# Finished-controller experiment settings
+EXPERIMENT_LOG_DIR = os.path.join(CURRENT_DIR, "experiment_logs")
+# Convention: positions/velocities are [North, East], yaw=0 points North.
+# The USV starts at [0, 0] NE pointing North for both cases.
+FINISHED_CONTROLLER_EXPERIMENTS = [
+    {
+        "name": "DRL_stationary_target_20N_10E",
+        "path_mode": "stationary",
+        "target_start": [20.0, 10.0],
+        "target_velocity": [0.0, 0.0],
+        "initial_eta": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "max_time": 150.0,
+    },
+    {
+        "name": "DRL_straight_target_30N_0E_vE_1p5",
+        "path_mode": "line",
+        "target_start": [30.0, 0.0],
+        "target_velocity": [0.0, 1.5],
+        "initial_eta": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "max_time": 100.0,
+    },
+]
 
 randomize_position = True                                                                               # Used to randomize usv start position for better training
 randomize_path = True                                                                                   # Randomizes paths to circular/straight line/stationary
@@ -61,25 +84,43 @@ v_north = 0                                                                     
 v_east = -1.5                                                                                           # Moving target speed east (m/s)
 radius = 40 # SIM LOGIC LINE~500 X/Y START (FIX)                                                        # If not tracking a circular motion 
 max_target_delta = 250                                                                                  # Max distance target moves before truncation
-max_episode_time = 266.66
+max_episode_time = 100.0
 v_circle = 1.5                                                                                          # Angular velocity (m/s)
 side_length = 50                                                                                        # Square tracking side length
 side_target_speed = 1                                                                                   # Speed of square target
-path_probabilities = [0, 1, 0]                                                                          # probability of [stationary, straight line, circle] target movement
 
-# Disturbances
+
+USE_RELATIVE_VELOCITY_OBS = True                                                                       # True  = new 10-observation setup with x_rel_dot and y_rel_dot
+
+'''
+Probability of paths: [stationary, straight line, circular, zigzag, waypoints]
+waypoints is a stationary target that updates with a new location once target is reached
+'''
+path_probabilities = [0.0, 0.0, 0.0, 1.0, 0.0]                                                                  
+
+# Disturbances (randomized directions and amplitudes, see simulator)
 wave_disturbance = True
 wind_disturbance = True
+
+# Stationary target start-distance randomization [m]
+stationary_start_min_dist = 10.0     # closest initial distance 
+stationary_start_max_dist = 30.0     # farthest initial distance 
 
 numDataPoints = 830                                                                                     # number of 3D data points
 FPS = 60                                                                                                # frames per second (animated GIF)
 filename = '3D_animation.gif'                                                                           # data file for animated GIF
 browser = 'chrome'
 
-CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_station.zip")                                   # checkpoint model path
-CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_checkpoint_vecnormalize_station.pkl")
-FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
-FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
+if USE_RELATIVE_VELOCITY_OBS:
+    CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "otter_10obs_station_dist.zip")
+    CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "otter_10obs_station_dist.pkl")
+    FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_10obs_final.zip")
+    FINAL_VECNORM = os.path.join(SAVE_DIR, "ppo_otter_10obs_final_vecnorm.pkl")
+else:
+    CHECKPOINT_MODEL = os.path.join(SAVE_DIR, "ppo_otter_straight_dist.zip")
+    CHECKPOINT_VECNORM = os.path.join(SAVE_DIR, "ppo_otte_straight_dist_vecnorm.pkl")
+    FINAL_MODEL = os.path.join(SAVE_DIR, "ppo_otter_model.zip")
+    FINAL_VECNORM = os.path.join(SAVE_DIR, "vecnormalize.pkl")
 
 
 otter = Otter_api.otter()
@@ -97,6 +138,7 @@ simulator = Otter_simulator_DRL.OtterSimDRL(target_list,
                                             radius,
                                             use_waves=wave_disturbance,
                                             use_wind=wind_disturbance)
+
 
 print("initialized otter api and simulator")
 otter.controls = ["Left propeller shaft speed (rad/s)", "Right propeller shaft speed (rad/s)"]           # values needed for the plotting
@@ -144,18 +186,19 @@ def wrap_to_pi(angle):
     return (angle + np.pi) % (2 * np.pi) - np.pi
 
 class OtterEnv(gym.Env):
-    def __init__(self, simulator, otter):
+    def __init__(self, simulator, otter, experiment_config=None):
         super().__init__()                                                                               # call gym.env constructor
 
         self.simulator = simulator
         self.otter = otter
+        self.experiment_config = experiment_config
 
 
         # Overwrite when training one at a time. station->line->all three
-        self.path_modes = ["stationary", "line", "circle"] # line, stationary, circle
+        self.path_modes = ["stationary", "line", "circle", "zigzag", "waypoint"] # line, stationary, circle
 
 
-        self.sampletime = 0.1  # iteration updates
+        self.sampletime = 0.2  # iteration updates
         self.episode_duration = 400000  # no. simulation samples (truncates at distances, just ensure not too small)
         self.sim_duration = int(self.episode_duration / self.sampletime)  # sim duration
         self.current_step = 0
@@ -165,10 +208,16 @@ class OtterEnv(gym.Env):
 
         # callback function for finished learning
         self.hold_radius = 0.2          # meters
-        self.hold_time_required = 10.0  # seconds
+        self.hold_time_required = 30.0  # seconds
         self.hold_time = 0.0            # accumulate within radius
         self.max_hold_time = 0.0        # longest period
         self.last_hold_success = False  # stored at end of episode
+        self.objective_achieved = False
+        self.min_distance_to_target = np.inf
+
+        self.last_max_hold_time = 0.0
+        self.last_objective_achieved = False
+        self.last_min_distance_to_target = np.inf
 
         # used for observation/action/rewards
         self.Umax = 6 * 0.5144
@@ -179,6 +228,7 @@ class OtterEnv(gym.Env):
         self.u_applied = np.zeros(2)
         self.tau_act = 1.0     
         self.last_distance = 0
+        self.last_alloc_scale = 1.0
         
         # target references for heading rewards
         self.prev_target_pos = None         
@@ -200,6 +250,9 @@ class OtterEnv(gym.Env):
         self.last_target_data = None
         self.last_sim_time = None
         self.last_yaw_history = None
+
+        self.fixed_experiment_mode = False
+        self.experiment_max_time = max_episode_time
         
         # training metrics
         self.IAE_distance_History = []
@@ -221,75 +274,87 @@ class OtterEnv(gym.Env):
 
         self.initial_target = list(self.simulator.moving_target)
         self.has_plotted = False
-        '''
-        # normalized values
-        self.observation_space = Box(low=np.array([-1,                   # distance to target
-                                                   -1,                   # heading error
-                                                   -1,                   # surge velocity
-                                                   -1,                   # sway velocity
-                                                   -1,                   # yaw rate
-                                                   -1],                  # target error rate of change (d_dot) 
-                                                  dtype=np.float32),
-                                     high=np.array([1,
-                                                    1,
-                                                    1,
-                                                    1,
-                                                    1,
-                                                    1],
-                                                   dtype=np.float32))
-        '''
+
         # with relative x,y,r
-        self.observation_space = Box(
-            low=np.array([
-                -1,  # x_rel
-                -1,  # y_rel
-                -1,  # yaw_rel
-                -1,  # surge vel
-                -1,  # sway vel
-                -1,  # yaw vel
-                -1,  # euclidean dist
-                -1,  # euclidean dist rate
-            ], dtype=np.float32),
-            high=np.array([
-                1,  # x_rel
-                1,  # y_rel
-                1,  # yaw_rel
-                1,  # surge vel
-                1,  # sway vel
-                1,  # yaw vel
-                1,  # euclidean dist
-                1,  # euclidean dist rate
-            ], dtype=np.float32)
-)
+        # Observation space
+        if USE_RELATIVE_VELOCITY_OBS:
+            self.observation_space = Box(
+                low=np.array([
+                    -1,  # x_rel
+                    -1,  # y_rel
+                    -1,  # yaw_rel
+                    -1,  # surge vel
+                    -1,  # sway vel
+                    -1,  # yaw vel
+                    -1,  # euclidean dist
+                    -1,  # euclidean dist rate
+                    -1,  # x_rel_dot
+                    -1,  # y_rel_dot
+                ], dtype=np.float32),
+                high=np.array([
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+                ], dtype=np.float32)
+            )
+        else:
+            self.observation_space = Box(
+                low=np.array([
+                    -1,  # x_rel
+                    -1,  # y_rel
+                    -1,  # yaw_rel
+                    -1,  # surge vel
+                    -1,  # sway vel
+                    -1,  # yaw vel
+                    -1,  # euclidean dist
+                    -1,  # euclidean dist rate
+                ], dtype=np.float32),
+                high=np.array([
+                    1, 1, 1, 1, 1, 1, 1, 1
+                ], dtype=np.float32)
+            )
 
         # min/max forces in surge/yaw normalized
-        self.action_space = Box(low=np.array([-1,
-                                              -1],
-                                             dtype=np.float32),
-                                high=np.array([1,
-                                               1],
-                                              dtype=np.float32))
-
+        if use_moving_target:
+            self.action_space = Box(
+                low=np.array([0.0, -1.0], dtype=np.float32),
+                high=np.array([1.0, 1.0], dtype=np.float32)
+                )
+        else:
+            self.action_space = Box(
+                low=np.array([-1.0, -1.0], dtype=np.float32),
+                high=np.array([1.0, 1.0], dtype=np.float32)
+                )
+            
     def step(self, action):
         self.current_step += 1
         truncated_count = 0
         prev_distance = self.last_distance                                      # previous Euclidean distance for d_dot
 
-        # raw action command
-        tau_cmd = np.array(action, dtype=float)                                 # PPO output action
+        # PPO normalized action [-1, 1]
+        action = np.asarray(action, dtype=float)
+        action = np.clip(action, -1.0, 1.0)
 
-        # actuator lag
-        alpha_t = self.sampletime / (self.tau_act + self.sampletime)            # first-order actuator lag factor
-        self.u_applied = (1 - alpha_t) * self.u_applied + alpha_t * tau_cmd     # lagged actuator command
+        # Desired normalized surge/yaw command
+        surge_des = float(action[0])
+        yaw_des   = float(action[1])
 
-        # clamp applied tau to physical limits
-        self.u_applied = np.clip(
-            self.u_applied,
-            [-self.tauX_max, -self.tauN_max],
-            [ self.tauX_max,  self.tauN_max],
-        )                                                                       # saturate to actuator limits
+        # Match live PMARMAN architecture:
+        # action[0] -> X command
+        # action[1] -> N command
+        tau_cmd = np.array([
+            surge_des * self.tauX_max,
+            yaw_des   * self.tauN_max
+        ], dtype=float)
 
-        tau_X, tau_N = self.u_applied                                           # applied control inputs
+        alloc_scale = 1.0
+
+        # Actuator lag on generalized command
+        alpha_t = self.sampletime / (self.tau_act + self.sampletime)
+        self.u_applied = (1.0 - alpha_t) * self.u_applied + alpha_t * tau_cmd
+
+        tau_X, tau_N = self.u_applied
+
+        # Store allocation scale for reward/debug
+        self.last_alloc_scale = alloc_scale
 
         # simulate with applied input
         eta, nu, target, distance_to_target, heading_error, u_actual = self.simulator.simulate_step(
@@ -308,9 +373,15 @@ class OtterEnv(gym.Env):
         )                                                                       # update evaluation metrics
 
         # for state/logging
-        commands = self.u_applied                                               # actual command sent to plant
-        actuals = u_actual                                                      # measured/actual thruster outputs
-        full_state = np.hstack([eta, nu, commands, actuals])                    # log full state vector
+        # Convert DRL generalized command to left/right shaft speed
+        n1_cmd, n2_cmd = self.otter.otter_control.controlAllocation(tau_X, tau_N)
+
+        # Store the same format as PID/NMPC:
+        # commands = desired shaft speeds [rad/s]
+        # actuals  = actual shaft speeds [rad/s]
+        commands = np.array([n1_cmd, n2_cmd], dtype=float)
+        actuals = u_actual
+        full_state = np.hstack([eta, nu, commands, actuals])
 
         # target state
         target_pos = np.array(self.simulator.moving_target, dtype=float)        # target position in world frame
@@ -350,14 +421,37 @@ class OtterEnv(gym.Env):
         e_d_norm = np.clip(e_d / pos_scale, -1.0, 1.0)                          # normalized Euclidean distance
         d_dot_norm = np.clip(d_dot / self.Umax, -1.0, 1.0)                      # normalized distance rate
 
-        # update hold logic
-        if distance_to_target <= self.hold_radius:
-            self.hold_time += self.sampletime                                   # accumulate hold time
-        else:
-            self.hold_time = 0.0                                                # reset hold time if outside hold radius
+        # Relative x/y rate for optional 10-observation setup
+        x_rel_dot = (x_rel - self.prev_x_rel) / self.sampletime
+        y_rel_dot = (y_rel - self.prev_y_rel) / self.sampletime
 
-        self.max_hold_time = max(self.max_hold_time, self.hold_time)            # log max hold time
-        success = self.hold_time >= self.hold_time_required                     # success if held long enough
+        x_rel_dot_norm = np.clip(x_rel_dot / self.Umax, -1.0, 1.0)
+        y_rel_dot_norm = np.clip(y_rel_dot / self.Umax, -1.0, 1.0)
+
+        #hold radius depending on path mode
+        if self.path_mode == "stationary":
+            success_radius = self.hold_radius
+        else:
+            success_radius = 0.5
+
+        #  hold logic
+        if distance_to_target <= success_radius:
+            self.hold_time += self.sampletime                                           # accumulate hold time
+        else:
+            self.hold_time = 0.0                                                        # reset hold time if outside success radius
+
+        self.max_hold_time = max(self.max_hold_time, self.hold_time)                    # log max hold time
+
+        # success condition
+        success = self.hold_time >= self.hold_time_required
+
+        self.min_distance_to_target = min(
+            self.min_distance_to_target,
+            float(distance_to_target)
+        )
+
+        if success:
+            self.objective_achieved = True
 
         # logging
         self.simData.append(full_state)
@@ -372,43 +466,62 @@ class OtterEnv(gym.Env):
             self.reached_flag = True
             self.reached_target_time = self.current_step * self.sampletime
 
-        # updated observation
-        obs = np.array([
-            x_rel_norm,                                                         # relative x-position
-            y_rel_norm,                                                         # relative y-position
-            yaw_rel / np.pi,                                                    # normalized yaw error
-            np.clip(nu[0] / self.Umax, -1.0, 1.0),                              # surge velocity
-            np.clip(nu[1] / self.Umax, -1.0, 1.0),                              # sway velocity
-            np.clip(nu[5] / self.Rmax, -1.0, 1.0),                              # yaw rate
-            e_d_norm,                                                           # Euclidean distance
-            d_dot_norm,                                                         # Euclidean distance rate
-        ], dtype=np.float32)   
+        # updated observation - later versions should have target vx/vy for more predictive control
+        if USE_RELATIVE_VELOCITY_OBS:
+            obs = np.array([
+                x_rel_norm,                                                         # relative x-position
+                y_rel_norm,                                                         # relative y-position
+                yaw_rel / np.pi,                                                    # normalized yaw error
+                np.clip(nu[0] / self.Umax, -1.0, 1.0),                              # surge velocity
+                np.clip(nu[1] / self.Umax, -1.0, 1.0),                              # sway velocity
+                np.clip(nu[5] / self.Rmax, -1.0, 1.0),                              # yaw rate
+                e_d_norm,                                                           # Euclidean distance
+                d_dot_norm,                                                         # Euclidean distance rate
+                x_rel_dot_norm,                                                     # relative x-rate
+                y_rel_dot_norm,                                                     # relative y-rate
+            ], dtype=np.float32)
+        else:
+            obs = np.array([
+                x_rel_norm,                                                         # relative x-position
+                y_rel_norm,                                                         # relative y-position
+                yaw_rel / np.pi,                                                    # normalized yaw error
+                np.clip(nu[0] / self.Umax, -1.0, 1.0),                              # surge velocity
+                np.clip(nu[1] / self.Umax, -1.0, 1.0),                              # sway velocity
+                np.clip(nu[5] / self.Rmax, -1.0, 1.0),                              # yaw rate
+                e_d_norm,                                                           # Euclidean distance
+                d_dot_norm,                                                         # Euclidean distance rate
+            ], dtype=np.float32)
 
-        '''
-        obs = np.array([
-            normalized_distance,                         # distance normalized
-            heading_error / np.pi,                       # heading normalized
-            np.clip(nu[0] / self.Umax, -1.0, 1.0),       # surge velocity normalized
-            np.clip(nu[1] / self.Umax, -1.0, 1.0),       # sway velocity normalized
-            np.clip(nu[5] / self.Rmax, -1.0, 1.0),       # yaw rate normalized
-            np.clip(d_dot / self.Umax, -1.0, 1.0)        # closing speed normalized
-        ], dtype=np.float32)
+        # random noise for bad sensor data 
+        obs[0] += np.random.normal(0, 0.002)  # x_rel norm
+        obs[1] += np.random.normal(0, 0.002)  # y_rel norm
+        obs[2] += np.random.normal(0, 0.005)  # yaw_rel norm
+        obs[3] += np.random.normal(0, 0.02)   # u norm
+        obs[4] += np.random.normal(0, 0.02)   # v norm
+        obs[5] += np.random.normal(0, 0.01)   # r norm
+        obs = np.clip(obs, -1.0, 1.0)
+
         
-
-        # Determine target deltas for episode termination 
-        e
-        '''
-
-
+        self.prev_x_rel = float(x_rel)
+        self.prev_y_rel = float(y_rel)
         ''' 
         currently reset at start of steps, can be removed or use later? useless for time based ml?
         '''
-
         
+                
         episode_time = self.current_step * self.sampletime
-        truncated = episode_time >= max_episode_time
-        terminated = success
-        info = {"is_success": bool(success)} 
+
+        if self.fixed_experiment_mode:
+            truncated = episode_time >= self.experiment_max_time
+            terminated = False
+        else:
+            truncated = episode_time >= max_episode_time
+            terminated = success
+
+        if self.fixed_experiment_mode:
+            info = {"is_success": bool(self.objective_achieved)}
+        else:
+            info = {"is_success": bool(success)}
 
         # redundant atm
         truncated_count += 1                                                                
@@ -429,8 +542,17 @@ class OtterEnv(gym.Env):
                 self.last_avg_distance = 0.0
 
             self.last_reached_target_time = self.reached_target_time
-            self.last_reached_target_time = self.reached_target_time
-            
+
+            # Update final metrics before logging
+            self.last_IAE_distance, self.last_IAE_heading = self.metrics.get_IAE()
+            self.last_ISU = self.metrics.get_ISU()
+            self.last_ISU_normalized = self.metrics.get_ISU_normalized()
+            self.last_IAU = self.metrics.get_IAU()
+
+            self.last_max_hold_time = float(self.max_hold_time)
+            self.last_objective_achieved = bool(self.objective_achieved)
+            self.last_min_distance_to_target = float(self.min_distance_to_target)
+
             param_dict = {
                 "Control_method": "DRL",
                 "IAE_distance": self.last_IAE_distance,
@@ -566,14 +688,21 @@ class OtterEnv(gym.Env):
         r_vel = in_range * C_v * np.exp(-(e_v**2) / (2 * sigma_v**2))       # reward for maintaining same total velocity as target in world when close
         
         # time penalty
-        C_t = 0.001                                                         # small constant penalty per step
+        C_t = 0.01                                                         # small constant penalty per step
         r_time = C_t                                                        # faster convergence
 
         # action penalty
         scale = np.array([self.tauX_max, self.tauN_max], dtype=float)       # normalization for actuator commands
         delta_cmd = (tau_cmd - self.prev_cmd) / scale                       # normalized command change
-        C_a = 0.01                                                          # amplitude of actuator penalty
-        r_action = C_a * (abs(delta_cmd[0]) + abs(delta_cmd[1]))            # penalty for aggressive actuator changes
+        C_a_x = 0.5      # surge command smoothing
+        C_a_n = 5.0      # yaw command smoothing
+
+        r_action = (
+            C_a_x * delta_cmd[0]**2 +
+            C_a_n * delta_cmd[1]**2
+)
+
+
 
         self.prev_cmd[:] = tau_cmd                                          # update curr cmd          
 
@@ -582,10 +711,11 @@ class OtterEnv(gym.Env):
         t_long  = self.hold_time_required                                      
 
         # increasing reward for staying on targe
-        hold_ratio_short = np.clip(self.hold_time / max(t_short, 1e-6), 0.0, 1.0)**2   # increasing reward for staying on targe -.. testing scaling to prioritize holding longer
+        hold_ratio_short = np.clip(self.hold_time / max(t_short, 1e-6), 0.0, 1.0)**2   # increasing reward for staying on targe - testing scaling to prioritize holding longer
         hold_ratio_long  = np.clip(self.hold_time / max(t_long,  1e-6), 0.0, 1.0)      # reward for completing long hold
 
         r_hold = 5 * in_range * (0.2 * hold_ratio_short + 0.8 * hold_ratio_long)                    # hold time reward
+
 
         # final
         reward += r_pos                                                         # reward for correct distance
@@ -596,7 +726,7 @@ class OtterEnv(gym.Env):
         reward += r_vel                                                         # penalty for not keeping same velocity as target
         reward -= r_time                                                        # penalty for slow convergence
         reward -= r_action                                                      # penalty for aggressive actuation   
-        reward += r_hold                                                        # reward for hovering above target
+        reward += r_hold                                                        # reward for hovering
         if success:
             reward += 100.0                                                     # bonus for completing the hold objective
 
@@ -619,8 +749,15 @@ class OtterEnv(gym.Env):
 
 
         if terminated or truncated:
-            info["is_success"] = bool(success)
-            info["max_hold_time"] = self.max_hold_time
+            if self.fixed_experiment_mode:
+                info["is_success"] = bool(self.objective_achieved)
+            else:
+                info["is_success"] = bool(success)
+
+            info["max_hold_time"] = float(self.max_hold_time)
+            info["min_distance"] = float(self.min_distance_to_target)
+            info["objective_achieved"] = bool(self.objective_achieved)
+
             info["IAE_distance"] = self.last_IAE_distance
             info["IAE_heading"] = self.last_IAE_heading
             info["avg_distance"] = self.last_avg_distance
@@ -629,7 +766,7 @@ class OtterEnv(gym.Env):
             info["alpha0"] = self.alpha0
             info["reward_breakdown"] = self.episode_reward_breakdown.copy()
 
-
+        self.last_distance = float(e_d)
 
         return obs, reward, terminated, truncated, info
 
@@ -685,6 +822,9 @@ class OtterEnv(gym.Env):
             self.last_IAU = 0.0
 
         super().reset(seed=seed)
+        # new random force/direction profile for disturbances
+        self.simulator.randomize_disturbances(self.np_random)
+
 
         self.episode_reward_breakdown = {
             "r_pos": 0.0,
@@ -696,6 +836,7 @@ class OtterEnv(gym.Env):
             "r_time": 0.0,
             "r_action": 0.0,
             "r_hold": 0.0,
+            "r_alloc": 0.0,
             "success_bonus": 0.0,
             "total_reward": 0.0,
         }
@@ -706,40 +847,133 @@ class OtterEnv(gym.Env):
         self.cum_distance = 0.0
         self.reached_target_time = 0.0
         self.max_hold_time = 0.0
+        self.objective_achieved = False
         self.reached_flag = False
+        self.min_distance_to_target = np.inf
 
+       
+       
         # choose path mode
-        if randomize_path:
+        if self.experiment_config is not None:
+            # Deterministic experiment mode for finished-controller evaluation.
+            self.path_mode = self.experiment_config["path_mode"]
+        elif randomize_path:
             self.path_mode = self.np_random.choice(self.path_modes, p=path_probabilities)
         else:
             self.path_mode = "stationary"
 
+        if self.experiment_config is not None:
+            self.simulator.moving_target_start = np.array(
+                self.experiment_config["target_start"],
+                dtype=float,
+            )
+
         if self.path_mode == "circle":
             self.simulator.circular_target = True
             self.simulator.use_moving_target = True
+            self.simulator.zigzag_target = False
+            self.simulator.waypoint_target = False
+
             self.simulator.radius = float(self.np_random.uniform(20.0, 60.0))
+            self.simulator.target_radius = self.simulator.radius
             self.simulator.asd = 0.0
 
         elif self.path_mode == "line":
             self.simulator.circular_target = False
             self.simulator.use_moving_target = True
-            velocity = float(self.np_random.uniform(0.2, 0.5))
-            heading = float(self.np_random.uniform(-np.pi/2, np.pi/2))
-            #heading = float(2*np.pi)
+            self.simulator.zigzag_target = False
+            self.simulator.waypoint_target = False
+
+            if self.experiment_config is not None:
+                self.simulator.moving_target_increase = np.array(
+                    self.experiment_config.get("target_velocity", [0.0, 0.0]),
+                    dtype=float,
+                )
+            else:
+                velocity = float(self.np_random.uniform(0.5, 1.5))
+                heading = float(self.np_random.uniform(-np.pi, np.pi))
+
+                self.simulator.moving_target_increase = np.array([
+                    velocity * np.cos(heading),
+                    velocity * np.sin(heading)
+                ], dtype=float)
+
+        elif self.path_mode == "zigzag":
+            self.simulator.circular_target = False
+            self.simulator.use_moving_target = True
+            self.simulator.zigzag_target = True
+            self.simulator.waypoint_target = False
+
+            velocity = float(self.np_random.uniform(0.5, 1.2))
+            heading = float(self.np_random.uniform(-np.pi, np.pi))
+
+            self.simulator.zigzag_velocity = velocity
+            self.simulator.zigzag_base_heading = heading
+            self.simulator.zigzag_angle = float(self.np_random.uniform(np.deg2rad(20), np.deg2rad(45)))
+
+            # Switch direction after traveling roughly 15–20 meters
+            zigzag_side_length = float(self.np_random.uniform(15.0, 20.0))
+            dt_phys = 0.02
+
+            self.simulator.zigzag_period_steps = int(
+                zigzag_side_length / (velocity * dt_phys)
+            )
+
+            self.simulator.zigzag_step_counter = 0
+            self.simulator.zigzag_direction = 1.0
+
+            zigzag_heading = heading + self.simulator.zigzag_direction * self.simulator.zigzag_angle
+
             self.simulator.moving_target_increase = np.array([
-                velocity * np.cos(heading),
-                velocity * np.sin(heading)
+                velocity * np.cos(zigzag_heading),
+                velocity * np.sin(zigzag_heading)
             ], dtype=float)
+
+        elif self.path_mode == "waypoint":
+            self.simulator.circular_target = False
+            self.simulator.use_moving_target = True
+            self.simulator.zigzag_target = False
+            self.simulator.waypoint_target = True
+
+            self.simulator.waypoint_velocity = float(self.np_random.uniform(0.5, 1.2))
+            self.simulator.waypoint_acceptance_radius = float(self.np_random.uniform(2.0, 5.0))
+            self.simulator.waypoint_area_radius = float(self.np_random.uniform(30.0, 80.0))
+
+            waypoint_angle = float(self.np_random.uniform(-np.pi, np.pi))
+            waypoint_radius = float(self.np_random.uniform(10.0, self.simulator.waypoint_area_radius))
+
+            self.simulator.current_waypoint = (
+                self.simulator.moving_target_start
+                + np.array([
+                    waypoint_radius * np.cos(waypoint_angle),
+                    waypoint_radius * np.sin(waypoint_angle)
+                ], dtype=float)
+            )
+
+            direction = self.simulator.current_waypoint - self.simulator.moving_target_start
+            direction_norm = np.linalg.norm(direction)
+
+            if direction_norm > 1e-8:
+                direction_unit = direction / direction_norm
+            else:
+                direction_unit = np.array([1.0, 0.0], dtype=float)
+
+            self.simulator.moving_target_increase = (
+                self.simulator.waypoint_velocity * direction_unit
+            )
 
         elif self.path_mode == "stationary":
             self.simulator.circular_target = False
             self.simulator.use_moving_target = False
+            self.simulator.zigzag_target = False
+            self.simulator.waypoint_target = False
+
             self.simulator.moving_target_increase = np.array([0.0, 0.0], dtype=float)
 
         else:
             raise ValueError(f"Unknown path_mode: {self.path_mode}")
 
-        self.simulator.moving_target = self.simulator.moving_target_start.copy()
+        self.simulator.moving_target = np.array(self.simulator.moving_target_start, dtype=float).copy()
         self.initial_target = list(self.simulator.moving_target)
 
         rng = self.np_random
@@ -747,10 +981,27 @@ class OtterEnv(gym.Env):
         target_x, target_y = target_pos
 
         # choose initial USV pose
-        if randomize_position:
-            if self.simulator.circular_target:
+        if self.experiment_config is not None:
+            eta_cfg = self.experiment_config.get(
+                "initial_eta",
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            )
+            x = float(eta_cfg[0])
+            y = float(eta_cfg[1])
+            yaw = float(eta_cfg[5])
+            self.r0 = float(np.linalg.norm(target_pos - np.array([x, y], dtype=float)))
+            self.alpha0 = float(np.arctan2(y - target_y, x - target_x))
+
+        elif randomize_position:
+            if self.path_mode == "stationary":
+                # Randomize stationary tracking start distance
+                r_min = stationary_start_min_dist
+                r_max = stationary_start_max_dist
+
+            elif self.simulator.circular_target:
                 r_min = 5.0
                 r_max = float(getattr(self.simulator, "radius", radius))
+
             else:
                 r_min, r_max = 5.0, 25.0
 
@@ -759,7 +1010,12 @@ class OtterEnv(gym.Env):
 
             x = target_x + r * np.cos(alpha)
             y = target_y + r * np.sin(alpha)
+
+            # Optional: random yaw, harder exploration
             yaw = rng.uniform(-np.pi, np.pi)
+
+            # Alternative: start facing the stationary target, easier training
+            # yaw = wrap_to_pi(np.arctan2(target_y - y, target_x - x))
 
             self.r0 = float(r)
             self.alpha0 = float(alpha)
@@ -774,8 +1030,11 @@ class OtterEnv(gym.Env):
         eta_initial = [x, y, 0.0, 0.0, 0.0, yaw]
         self.simulator.initial_state(eta_initial)
 
-        self.prev_action[:] = 0.0
+        self.u_applied[:] = 0.0
+        self.prev_applied[:] = 0.0
         self.prev_cmd[:] = 0.0
+        self.prev_action[:] = 0.0
+        self.last_alloc_scale = 1.0
 
         # stationary heading reference based on initial LOS
         usv_pos_init = np.array([x, y], dtype=float)
@@ -831,27 +1090,36 @@ class OtterEnv(gym.Env):
 
         self.last_distance = e_d
 
-        obs = np.array([
-            x_rel_norm,
-            y_rel_norm,
-            yaw_rel / np.pi,
-            np.clip(nu0[0] / self.Umax, -1.0, 1.0),
-            np.clip(nu0[1] / self.Umax, -1.0, 1.0),
-            np.clip(nu0[5] / self.Rmax, -1.0, 1.0),
-            e_d_norm,
-            d_dot_norm,
-        ], dtype=np.float32)
+        self.prev_x_rel = float(x_rel)
+        self.prev_y_rel = float(y_rel)
 
-        '''
-        obs = np.array([
-            normalized_distance,                         # distance normalized
-            heading_error / np.pi,                       # heading normalized
-            np.clip(nu[0] / self.Umax, -1.0, 1.0),       # surge velocity normalized
-            np.clip(nu[1] / self.Umax, -1.0, 1.0),       # sway velocity normalized
-            np.clip(nu[5] / self.Rmax, -1.0, 1.0),       # yaw rate normalized
-            np.clip(d_dot / self.Umax, -1.0, 1.0)        # closing speed normalized
-        ], dtype=np.float32)
-        '''
+        x_rel_dot_norm = 0.0
+        y_rel_dot_norm = 0.0
+
+        if USE_RELATIVE_VELOCITY_OBS:
+            obs = np.array([
+                x_rel_norm,
+                y_rel_norm,
+                yaw_rel / np.pi,
+                np.clip(nu0[0] / self.Umax, -1.0, 1.0),
+                np.clip(nu0[1] / self.Umax, -1.0, 1.0),
+                np.clip(nu0[5] / self.Rmax, -1.0, 1.0),
+                e_d_norm,
+                d_dot_norm,
+                x_rel_dot_norm,
+                y_rel_dot_norm,
+            ], dtype=np.float32)
+        else:
+            obs = np.array([
+                x_rel_norm,
+                y_rel_norm,
+                yaw_rel / np.pi,
+                np.clip(nu0[0] / self.Umax, -1.0, 1.0),
+                np.clip(nu0[1] / self.Umax, -1.0, 1.0),
+                np.clip(nu0[5] / self.Rmax, -1.0, 1.0),
+                e_d_norm,
+                d_dot_norm,
+            ], dtype=np.float32)
 
         info = {}
 
@@ -862,8 +1130,38 @@ class OtterEnv(gym.Env):
     def seed(self, seed=None):
         pass
 
+    def project_normalized_surge_yaw(self, surge_cmd, yaw_cmd):
+        """
+        takes normalized desired surge/yaw commands in [-1, 1]
+        surge_cmd =  1 means both thrusters forward
+        yaw_cmd   =  1 means left forward, right reverse/less forward
 
-def make_env():
+        constraint is:
+            left_cmd  = surge + yaw
+            right_cmd = surge - yaw
+
+        Both left/right must stay within [-1, 1].
+        """
+
+        surge_cmd = float(np.clip(surge_cmd, -1.0, 1.0))
+        yaw_cmd   = float(np.clip(yaw_cmd,   -1.0, 1.0))
+
+        left_cmd  = surge_cmd + yaw_cmd
+        right_cmd = surge_cmd - yaw_cmd
+
+        max_abs = max(abs(left_cmd), abs(right_cmd), 1.0)
+
+        left_cmd  /= max_abs
+        right_cmd /= max_abs
+
+        surge_feasible = 0.5 * (left_cmd + right_cmd)
+        yaw_feasible   = 0.5 * (left_cmd - right_cmd)
+
+        alloc_scale = 1.0 / max_abs
+
+        return surge_feasible, yaw_feasible, alloc_scale
+
+def make_env(experiment_config=None):
     def _init():
         otter = Otter_api.otter()
 
@@ -880,9 +1178,12 @@ def make_env():
             end_when_last_target_reached,
             verbose,
             store_force_file,
-            circular_target
+            circular_target,
+            radius,
+            use_waves=wave_disturbance,
+            use_wind=wind_disturbance,
         )
-        return OtterEnv(simulator=simulator, otter=otter)
+        return OtterEnv(simulator=simulator, otter=otter, experiment_config=experiment_config)
     return _init
 
 class RewardCallback(BaseCallback):
@@ -929,28 +1230,35 @@ class CallBackLog(BaseCallback):
         super().__init__(verbose=verbose)
         self.IAE_distance_history = []
         self.IAE_heading_history = []
+        self.IAU_history = []
 
     def _on_step(self) -> bool:
         for i, done in enumerate(self.locals["dones"]):
             if done:
                 IAE_distance = self.training_env.get_attr("last_IAE_distance", i)[0]
-                IAE_heading = self.training_env.get_attr("last_IAE_heading", i)[0]  
+                IAE_heading = self.training_env.get_attr("last_IAE_heading", i)[0]
+                IAU = self.training_env.get_attr("last_IAU", i)[0]
 
                 self.IAE_distance_history.append(IAE_distance)
                 self.IAE_heading_history.append(IAE_heading)
+                self.IAU_history.append(IAU)
 
                 if self.verbose and len(self.IAE_distance_history) % 10 == 0:
-                    print(f"Episode {len(self.IAE_distance_history)} - "
-                          f"IAE Distance: {IAE_distance:.2f}, Heading: {IAE_heading:.2f}")
+                    print(
+                        f"Episode {len(self.IAE_distance_history)} - "
+                        f"IAE Distance: {IAE_distance:.2f}, "
+                        f"IAE Heading: {IAE_heading:.2f}, "
+                        f"IAU: {IAU:.2f}"
+                    )
 
         return True
 
     def return_log(self):
-        return self.IAE_distance_history, self.IAE_heading_history
+        return self.IAE_distance_history, self.IAE_heading_history, self.IAU_history
 
 # stop if maintaining objective (above target for 10s straight) over threshold% of window_size-episodes
 class StopOnSuccessRate(BaseCallback):
-    def __init__(self, window_size=200, threshold=0.99, verbose=1):
+    def __init__(self, window_size=200, threshold=0.90, verbose=1):
         super().__init__(verbose)
         self.window_size = window_size
         self.threshold = threshold
@@ -1012,6 +1320,280 @@ def log_one_episode_reward_breakdown(model, eval_env):
 
             return
 
+
+def select_experiment_paths():
+    """Use final model/normalizer when available, otherwise fall back to checkpoint."""
+    model_path = FINAL_MODEL if os.path.exists(FINAL_MODEL) else CHECKPOINT_MODEL
+    vecnorm_path = FINAL_VECNORM if os.path.exists(FINAL_VECNORM) else CHECKPOINT_VECNORM
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    if not os.path.exists(vecnorm_path):
+        raise FileNotFoundError(f"VecNormalize file not found: {vecnorm_path}")
+
+    return model_path, vecnorm_path
+
+
+def run_single_finished_controller_experiment(case, model_path, vecnorm_path):
+    """Run one deterministic finished-controller experiment and save its log."""
+    os.makedirs(EXPERIMENT_LOG_DIR, exist_ok=True)
+
+    eval_env = DummyVecEnv([make_env(experiment_config=case)])
+    eval_env = VecNormalize.load(vecnorm_path, eval_env)
+    eval_env.training = False
+    eval_env.norm_reward = False
+
+    model = PPO.load(model_path, env=eval_env, device="cpu")
+
+    # Get the real env before reset, then force fixed-duration experiment mode
+    env_single = eval_env.envs[0]
+    env_single.fixed_experiment_mode = True
+    env_single.experiment_max_time = float(case.get("max_time", max_episode_time))
+
+    obs = eval_env.reset()
+
+    # DummyVecEnv reset may recreate/reset internal state, so set this again
+    env_single = eval_env.envs[0]
+    env_single.fixed_experiment_mode = True
+    env_single.experiment_max_time = float(case.get("max_time", max_episode_time))
+
+    max_steps = int(env_single.experiment_max_time / env_single.sampletime)
+
+    episode_reward = 0.0
+    info = {}
+
+    for _ in range(max_steps):
+        action, _ = model.predict(obs, deterministic=True)
+        obs, rewards, dones, infos = eval_env.step(action)
+
+        episode_reward += float(rewards[0])
+        info = infos[0]
+
+        if bool(dones[0]):
+            break
+
+    # -------------------------------------------------
+    # Prefer terminal buffers, because DummyVecEnv may
+    # auto-reset current buffers after done.
+    # -------------------------------------------------
+    def terminal_or_current(attr_names, current_value):
+        if isinstance(attr_names, str):
+            attr_names = [attr_names]
+
+        for attr_name in attr_names:
+            terminal_value = getattr(env_single, attr_name, None)
+
+            if terminal_value is None:
+                continue
+
+            if hasattr(terminal_value, "__len__") and len(terminal_value) == 0:
+                continue
+
+            return np.asarray(terminal_value, dtype=float)
+
+        return np.asarray(current_value, dtype=float)
+
+    sim_time = terminal_or_current(
+        ["last_simTime", "last_sim_time"],
+        env_single.simTime,
+    )
+
+    sim_data = terminal_or_current(
+        ["last_simData", "last_sim_data"],
+        env_single.simData,
+    )
+
+    target_data = terminal_or_current(
+        ["last_targetData", "last_target_data"],
+        env_single.targetData,
+    )
+
+    # -------------------------------------------------
+    # Make sure arrays are valid and aligned
+    # -------------------------------------------------
+    sim_time = np.asarray(sim_time, dtype=float).reshape(-1)
+    sim_data = np.asarray(sim_data, dtype=float)
+    target_data = np.asarray(target_data, dtype=float)
+
+    if sim_data.ndim != 2:
+        raise ValueError(f"sim_data has invalid shape: {sim_data.shape}")
+
+    if target_data.ndim != 2:
+        raise ValueError(f"target_data has invalid shape: {target_data.shape}")
+
+    n = min(len(sim_time), sim_data.shape[0], target_data.shape[0])
+
+    sim_time = sim_time[:n]
+    sim_data = sim_data[:n, :]
+    target_data = target_data[:n, :]
+
+    if n < 2:
+        raise ValueError(
+            f"Not enough samples for experiment {case['name']}. "
+            f"n={n}, sim_time={sim_time.shape}, sim_data={sim_data.shape}, "
+            f"target_data={target_data.shape}"
+        )
+
+    # -------------------------------------------------
+    # Save CSV log
+    # -------------------------------------------------
+    csv_path = os.path.join(EXPERIMENT_LOG_DIR, f"{case['name']}.csv")
+
+    log_to_csv(
+        simTime=sim_time,
+        simData=sim_data,
+        targetData=target_data,
+        filename=csv_path,
+        verbose=True,
+    )
+
+    # -------------------------------------------------
+    # Compute IAE directly from the saved trajectory.
+    #
+    # sim_data[:, 0] = USV north
+    # sim_data[:, 1] = USV east
+    # sim_data[:, 5] = yaw/psi
+    # target_data[:, 0] = target north
+    # target_data[:, 1] = target east
+    # -------------------------------------------------
+    usv_north = sim_data[:, 0]
+    usv_east = sim_data[:, 1]
+    psi = sim_data[:, 5]
+
+    target_north = target_data[:, 0]
+    target_east = target_data[:, 1]
+
+    north_error = target_north - usv_north
+    east_error = target_east - usv_east
+
+    distance_error = np.sqrt(north_error**2 + east_error**2)
+
+    los_heading = np.arctan2(east_error, north_error)
+    heading_error = np.array(
+        [wrap_to_pi(los_heading[i] - psi[i]) for i in range(len(psi))],
+        dtype=float,
+    )
+
+    valid = (
+        np.isfinite(sim_time)
+        & np.isfinite(distance_error)
+        & np.isfinite(heading_error)
+    )
+
+    sim_time_metric = sim_time[valid]
+    distance_metric = distance_error[valid]
+    heading_metric = heading_error[valid]
+
+    if len(sim_time_metric) < 2:
+        raise ValueError(
+            f"Not enough valid metric samples for experiment {case['name']}."
+        )
+
+    duration = max(sim_time_metric[-1] - sim_time_metric[0], 1e-9)
+
+    iae_distance = float(np.trapezoid(np.abs(distance_metric), sim_time_metric))
+    iae_heading = float(np.trapezoid(np.abs(heading_metric), sim_time_metric))
+    avg_distance = float(
+    np.trapezoid(distance_metric, sim_time_metric)
+    / max(sim_time_metric[-1] - sim_time_metric[0], 1e-9)
+)
+
+    # Use stored terminal actuator metrics if available.
+    iau = float(getattr(env_single, "last_IAU", np.nan))
+    isu = float(getattr(env_single, "last_ISU", np.nan))
+    isu_normalized = float(getattr(env_single, "last_ISU_normalized", np.nan))
+
+    # If terminal values are missing, fall back to current metrics.
+    if not np.isfinite(iau):
+        iau = float(env_single.metrics.get_IAU())
+
+    if not np.isfinite(isu):
+        isu = float(env_single.metrics.get_ISU())
+
+    if not np.isfinite(isu_normalized):
+        isu_normalized = float(env_single.metrics.get_ISU_normalized())
+
+    success = bool(
+        info.get("is_success", False)
+        or getattr(env_single, "objective_achieved", False)
+        or getattr(env_single, "max_hold_time", 0.0) >= env_single.hold_time_required
+    )
+
+    max_hold_time = float(
+        getattr(env_single, "max_hold_time", info.get("max_hold_time", np.nan))
+    )
+
+    intercept_time = float(
+        getattr(env_single, "reached_target_time", info.get("intercept_time", np.nan))
+    )
+
+    param_dict = {
+        "Control_method": "DRL",
+        "experiment": case["name"],
+        "model_path": model_path,
+        "vecnormalize_path": vecnorm_path,
+
+        "target_start_N": float(case["target_start"][0]),
+        "target_start_E": float(case["target_start"][1]),
+        "target_velocity_N": float(case["target_velocity"][0]),
+        "target_velocity_E": float(case["target_velocity"][1]),
+
+        "initial_north": float(case["initial_eta"][0]),
+        "initial_east": float(case["initial_eta"][1]),
+        "initial_yaw": float(case["initial_eta"][5]),
+
+        "episode_reward": float(episode_reward),
+        "success": int(success),
+
+        "IAE_distance": iae_distance,
+        "IAE_heading": iae_heading,
+        "IAU": iau,
+        "ISU": isu,
+        "ISU_normalized": isu_normalized,
+
+        "avg_distance": avg_distance,
+        "intercept_time": intercept_time,
+        "max_hold_time": max_hold_time,
+        "duration": float(duration),
+        "n_samples": int(n),
+    }
+
+    param_path = os.path.join(EXPERIMENT_LOG_DIR, f"{case['name']}_parameters.txt")
+    io_log_params(param_dict, filename=param_path, verbose=True)
+
+    print(f"\nFinished experiment: {case['name']}")
+    print(f"  log: {csv_path}")
+    print(f"  reward: {episode_reward:.3f}")
+    print(f"  success: {success}")
+    print(f"  duration: {duration:.2f}")
+    print(f"  samples: {n}")
+    print(f"  avg_distance: {avg_distance}")
+    print(f"  IAE_distance: {iae_distance}")
+    print(f"  IAE_heading: {iae_heading}")
+    print(f"  IAU: {iau}")
+
+    eval_env.close()
+
+    return param_dict
+
+
+def run_finished_controller_experiments():
+    """Run the two fixed cases used for controller comparison."""
+    model_path, vecnorm_path = select_experiment_paths()
+
+    print("\nRunning finished-controller DRL experiments")
+    print(f"Model: {model_path}")
+    print(f"VecNormalize: {vecnorm_path}")
+    print(f"Logs: {EXPERIMENT_LOG_DIR}\n")
+
+    results = []
+    for case in FINISHED_CONTROLLER_EXPERIMENTS:
+        results.append(run_single_finished_controller_experiment(case, model_path, vecnorm_path))
+
+    summary_path = os.path.join(EXPERIMENT_LOG_DIR, "finished_controller_experiment_summary.csv")
+    pd.DataFrame(results).to_csv(summary_path, index=False)
+    print(f"\nSaved experiment summary: {summary_path}")
+
 if __name__ == "__main__":
 
     print(f"Using device: {device}")
@@ -1021,7 +1603,7 @@ if __name__ == "__main__":
     print("\n\n\n\n##################################################################")
     print("\n ENSURE CORRECT PATHS FOR CHECKPOINTS TO PREVENT OVERRIDING FIELES\n")
     print("##################################################################")
-    mode = int(input("\n\nChoose '1' for model training or '2' to run saved model: "))
+    mode = int(input("\n\nChoose '1' for model training or '2' to run saved model, or '3' to complete & log experiment: "))
     if mode == 1:
 
         env = SubprocVecEnv([make_env() for _ in range(n_envs)])
@@ -1090,7 +1672,7 @@ if __name__ == "__main__":
 
         IAE_callback = CallBackLog(verbose=1)
         reward_callback = RewardCallback(n_envs=n_envs, print_every=10, verbose=1)
-        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.99, verbose=1) # threshold = % of window size required to be success 
+        stop_callback = StopOnSuccessRate(window_size=200, threshold=0.90, verbose=1) # threshold = % of window size required to be success 
         interrupted = False
 
         try:
@@ -1098,47 +1680,66 @@ if __name__ == "__main__":
                 total_timesteps=training_timesteps,
                 callback=[reward_callback, IAE_callback, stop_callback],
             )
+
         except KeyboardInterrupt:
             interrupted = True
             print("\nInterrupted. Will save checkpoint.")
+
         finally:
-            print("\nCompleted total timesteps: saving checkpoint")
+            print("\nTraining ended. Saving checkpoint and logs.")
+
+            # Save checkpoint model
             model.save(CHECKPOINT_MODEL)
+
+            # Save VecNormalize statistics
             if isinstance(env, VecNormalize):
                 env.save(CHECKPOINT_VECNORM)
 
-            # always save training logs
+            # Save CSV logs for BOTH interrupt and StopOnSuccess
             append_reward_training_progress(
                 os.path.join(SAVE_DIR, "reward_training_progress.csv"),
                 reward_callback
             )
+
             append_iae_training_progress(
                 os.path.join(SAVE_DIR, "iae_training_progress.csv"),
                 IAE_callback
             )
 
+            rewards, lengths = reward_callback.return_log()
+
+            print(f"Collected {len(rewards)} completed episodes")
+
+            # Save final model if success criterion was reached
             if stop_callback.completed and not interrupted:
-                print("\n Goal reached, saving final model")
+                print("\nSuccess-rate criterion reached. Saving final model.")
+
                 model.save(FINAL_MODEL)
+
                 if isinstance(env, VecNormalize):
                     env.save(FINAL_VECNORM)
 
+            # Optional plot for both interrupted and completed training
+            if len(rewards) > 0:
+                plt.figure()
+                plt.plot(rewards, linewidth=0.8, label="Episode reward")
+                plt.xlabel("Episode")
+                plt.ylabel("Reward")
+                plt.title("Episode Reward During Training")
+                plt.legend()
+                plt.grid(True)
+                plt.show()
+
             if interrupted:
-                rewards, lengths = reward_callback.return_log()
+                print("\nInterrupted training saved successfully.")
 
-                print(f"Collected {len(rewards)} completed episodes")
+            elif stop_callback.completed:
+                print("\nStopOnSuccess training saved successfully.")
 
-                if len(rewards) > 0:
-                    plt.figure()
-                    plt.plot(rewards, linewidth=0.8, label="Episode reward")
-                    plt.xlabel("Episode")
-                    plt.ylabel("Reward")
-                    plt.title("Episode Reward During Training")
-                    plt.legend()
-                    plt.grid(True)
-                    plt.show()
+            else:
+                print("\nTraining reached total_timesteps and was saved successfully.")
 
-                sys.exit(0)
+            sys.exit(0)
 
 
     elif mode == 2:
@@ -1158,6 +1759,9 @@ if __name__ == "__main__":
         model = PPO.load(CHECKPOINT_MODEL, env=eval_env, device="cpu")
         log_one_episode_reward_breakdown(model, eval_env)
 
+    elif mode == 3:
+        run_finished_controller_experiments()
+        sys.exit(0)
 
     else:
         print("Chosen option is not valid.")
@@ -1291,9 +1895,3 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.show()
     
-
-try:
-    if "IAE_callback" in globals() and mode == 1:
-        append_iae_training_progress(os.path.join(SAVE_DIR, "iae_training_progress.csv"), IAE_callback)
-except Exception as e:
-    print(f"IAE CSV: Failed to write IAE progress: {e}")

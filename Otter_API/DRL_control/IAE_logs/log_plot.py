@@ -4,8 +4,8 @@ import numpy as np
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(BASE_DIR, "reward_training_progress_station.csv")
-csv_path_iae = os.path.join(BASE_DIR, "iae_training_progress_station.csv")
+csv_path = os.path.join(BASE_DIR, "reward_straight_dist.csv")
+csv_path_iae = os.path.join(BASE_DIR, "iae_straight_dist.csv")
 
 def plot_reward_history(csv_path):
     df = pd.read_csv(csv_path)
@@ -24,7 +24,7 @@ def plot_reward_history(csv_path):
     plt.title("Training Reward History")
     plt.grid(True)
     plt.legend()
-
+    plt.savefig("reward_history.pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -45,7 +45,7 @@ def plot_iae_distance_history(csv_path):
     plt.title("IAE Distance During Training")
     plt.grid(True)
     plt.legend()
-
+    plt.savefig("iae_distance_history.pdf", bbox_inches="tight")
     plt.show()  
 
 
@@ -64,7 +64,7 @@ def plot_reward_history_smoothed(csv_path, window=20):
     plt.title("Training Reward History (Smoothed)")
     plt.grid(True)
     plt.legend()
-
+    plt.savefig("reward_history_smoothed.pdf", bbox_inches="tight")
     plt.show()
 
 def plot_reward_per_time_smoothed(csv_path, window=20):
@@ -90,6 +90,7 @@ def plot_reward_per_time_smoothed(csv_path, window=20):
     plt.legend()
 
     plt.margins(x=0)
+    plt.savefig("reward_per_time_smoothed.pdf", bbox_inches="tight")
     plt.show()
 
 def plot_iae_distance_history_smoothed(csv_path, window=20, percentile=98):
@@ -119,7 +120,7 @@ def plot_iae_distance_history_smoothed(csv_path, window=20, percentile=98):
     plt.title(f"IAE Distance During Training (Smoothed, {percentile}th percentile clipped)")
     plt.grid(True)
     plt.legend()
-
+    plt.savefig("iae_distance_history_smoothed.pdf", bbox_inches="tight")
     plt.show()
 
 plot_reward_history(csv_path)

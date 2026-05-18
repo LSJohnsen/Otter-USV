@@ -1,0 +1,137 @@
+Date : 2026-05-11 22:14:08
+Directory : c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API
+Total : 77 files,  480180 codes, 337 comments, 618 blanks, all 481135 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| CSV      |         63 |    478,510 |          0 |         24 |    478,534 |
+| Python   |         14 |      1,670 |        337 |        594 |      2,601 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                                                | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                                                   |         77 |    480,180 |        337 |        618 |    481,135 |
+| . (Files)                                                                                                                                           |          4 |        187 |         14 |         26 |        227 |
+| DRL_control                                                                                                                                         |         28 |    402,118 |          7 |         61 |    402,186 |
+| DRL_control (Files)                                                                                                                                 |          2 |        160 |          7 |         60 |        227 |
+| DRL_control\IAE_logs                                                                                                                                |         13 |    126,615 |          0 |          4 |    126,619 |
+| DRL_control\ppo_saves                                                                                                                               |         13 |    275,343 |          0 |         -3 |    275,340 |
+| DRL_control\ppo_saves (Files)                                                                                                                       |          3 |     89,317 |          0 |         -1 |     89,316 |
+| DRL_control\ppo_saves\stationary_actuatorpenalty                                                                                                    |          2 |    188,852 |          0 |          2 |    188,854 |
+| DRL_control\ppo_saves\stationary_tracking                                                                                                           |          2 |     -3,532 |          0 |         -2 |     -3,534 |
+| DRL_control\ppo_saves\stationary_tracking\actuator_map_no_disturbance                                                                               |          2 |     -3,532 |          0 |         -2 |     -3,534 |
+| DRL_control\ppo_saves\straight_tracking                                                                                                             |          6 |        706 |          0 |         -2 |        704 |
+| casadi_control                                                                                                                                      |          1 |         77 |         15 |         35 |        127 |
+| lib                                                                                                                                                 |          7 |      1,331 |        301 |        477 |      2,109 |
+| logs                                                                                                                                                |         37 |     76,467 |          0 |         19 |     76,486 |
+| logs (Files)                                                                                                                                        |         17 |      8,272 |          0 |          5 |      8,277 |
+| logs\sim_logs                                                                                                                                       |         20 |     68,195 |          0 |         14 |     68,209 |
+| logs\sim_logs\20260511_160516                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_160654                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_160916                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161039                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161213                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161407                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_161850                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_162116                                                                                                                       |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\20260511_162358                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\20260511_162516                                                                                                                       |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\drl_sim_logs                                                                                                                          |          1 |     -2,669 |          0 |         -1 |     -2,670 |
+| logs\sim_logs\mpc_sim_station_dist                                                                                                                  |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\mpc_sim_station_nodist                                                                                                                |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\mpn_sim_track_nodist                                                                                                                  |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\nmpc_sim_logs                                                                                                                         |          1 |    -13,335 |          0 |         -1 |    -13,336 |
+| logs\sim_logs\pid_sim_logs                                                                                                                          |          1 |    -13,335 |          0 |         -1 |    -13,336 |
+| logs\sim_logs\pid_sim_station_dist_param4                                                                                                           |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\pid_sim_station_nodist_param4                                                                                                         |          1 |      7,502 |          0 |          1 |      7,503 |
+| logs\sim_logs\pid_sim_track_dist                                                                                                                    |          1 |      5,002 |          0 |          1 |      5,003 |
+| logs\sim_logs\pid_sim_track_nodist                                                                                                                  |          1 |      5,002 |          0 |          1 |      5,003 |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                                                                                            | language | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_10obs_station_dist.csv                                                     | CSV      |      7,382 |          0 |          1 |      7,383 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_10obs.csv                                                          | CSV      |     17,152 |          0 |          1 |     17,153 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_general_8obs.csv                                                           | CSV      |      6,666 |          0 |          1 |      6,667 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_station_nodist.csv                                                         | CSV      |      5,599 |          0 |          1 |      5,600 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_straight_dist.csv                                                          | CSV      |     28,514 |          0 |          1 |     28,515 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\iae_training_progress_station1.csv                                             | CSV      |     -2,008 |          0 |         -1 |     -2,009 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\log_plot.py                                                                    | Python   |          5 |          0 |         -4 |          1 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_10obs_station_dist.csv                                                  | CSV      |      7,382 |          0 |          1 |      7,383 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_10bs.csv                                                        | CSV      |     17,152 |          0 |          1 |     17,153 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_general_8obs.csv                                                        | CSV      |      6,666 |          0 |          1 |      6,667 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_station_nodist.csv                                                      | CSV      |      5,599 |          0 |          1 |      5,600 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_straight_dist.csv                                                       | CSV      |     28,514 |          0 |          1 |     28,515 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\IAE_logs\reward_training_progress_station1.csv                                          | CSV      |     -2,008 |          0 |         -1 |     -2,009 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_dl.py                                                                             | Python   |        108 |          7 |         36 |        151 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\Otter_simulator_DRL.py                                                                  | Python   |         52 |          0 |         24 |         76 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\iae_training_progress.csv                                                     | CSV      |     44,659 |          0 |          0 |     44,659 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\reward_training_progress.csv                                                  | CSV      |     49,375 |          0 |          0 |     49,375 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\reward_training_progress_station.csv                                          | CSV      |     -4,717 |          0 |         -1 |     -4,718 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\iae_training_progress.csv                          | CSV      |     94,426 |          0 |          1 |     94,427 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_actuatorpenalty\reward_training_progress.csv                       | CSV      |     94,426 |          0 |          1 |     94,427 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_tracking\actuator_map_no_disturbance\iae_fin_stationary_act_nd.csv | CSV      |     -1,766 |          0 |         -1 |     -1,767 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\stationary_tracking\actuator_map_no_disturbance\reward_fin_station_act_nd.csv | CSV      |     -1,766 |          0 |         -1 |     -1,767 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\iae_10obs_straight_dist_progress.csv                        | CSV      |     15,620 |          0 |          1 |     15,621 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\iae_progress_station_allocation.csv                         | CSV      |     -2,625 |          0 |         -1 |     -2,626 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\iae_training_progress.csv                                   | CSV      |    -12,642 |          0 |         -1 |    -12,643 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\reward_10obs_straight_dist_progress.csv                     | CSV      |     15,620 |          0 |          1 |     15,621 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\reward_progress_station_allocation.csv                      | CSV      |     -2,625 |          0 |         -1 |     -2,626 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\DRL_control\ppo_saves\straight_tracking\reward_training_progress.csv                                | CSV      |    -12,642 |          0 |         -1 |    -12,643 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_api.py                                                                                        | Python   |         40 |         10 |         16 |         66 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\Otter_simulator.py                                                                                  | Python   |         35 |          3 |          9 |         47 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\casadi_control\MPC_control.py                                                                       | Python   |         77 |         15 |         35 |        127 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Connector.py                                                                                    | Python   |         69 |         23 |         50 |        142 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_DRL.py                                                                                     | Python   |        123 |         30 |         31 |        184 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_guidance.py                                                                                | Python   |        100 |         52 |         19 |        171 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\Live_plotter.py                                                                                 | Python   |         43 |         45 |         24 |        112 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\live_DRL_decoupled.py                                                                           | Python   |         69 |        110 |         37 |        216 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_experiment_from_csv.py                                                                     | Python   |        385 |          1 |        119 |        505 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\lib\plot_sim_from_log.py                                                                            | Python   |        542 |         40 |        197 |        779 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_15-40-53.csv                                                                        | CSV      |       -218 |          0 |         -1 |       -219 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_15-44-32.csv                                                                        | CSV      |        -62 |          0 |         -1 |        -63 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_15-45-20.csv                                                                        | CSV      |       -203 |          0 |         -1 |       -204 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_15-58-06.csv                                                                        | CSV      |       -243 |          0 |         -1 |       -244 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_16-00-30.csv                                                                        | CSV      |        -41 |          0 |         -1 |        -42 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\2026-05-04_16-01-12.csv                                                                        | CSV      |       -161 |          0 |         -1 |       -162 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_1.csv                                                                      | CSV      |        871 |          0 |          1 |        872 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_dist_2.csv                                                                      | CSV      |        797 |          0 |          1 |        798 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_station_10_general_1.csv                                                                   | CSV      |        808 |          0 |          1 |        809 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_dist.csv                                                                       | CSV      |        285 |          0 |          1 |        286 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\DRL_straight_10_general.csv                                                                    | CSV      |        335 |          0 |          1 |        336 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\NMPC_station_currentbest.csv                                                                   | CSV      |      1,395 |          0 |          1 |      1,396 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\PID_Stationeeping_1_TAEP_22kp.csv                                                              | CSV      |      1,783 |          0 |          1 |      1,784 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_stationkeeping.csv                                                                       | CSV      |        997 |          0 |          1 |        998 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc1_straightline.csv                                                                         | CSV      |        383 |          0 |          1 |        384 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc2_station_circling2m.csv                                                                   | CSV      |      1,216 |          0 |          1 |      1,217 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\nmpc_straight_080526.csv                                                                       | CSV      |        330 |          0 |          1 |        331 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160516\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160654\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_160916\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161039\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161213\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161407\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_161850\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162116\sim_log_NMPC.csv                                                      | CSV      |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162358\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\20260511_162516\sim_log_NMPC.csv                                                      | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\drl_sim_logs\sim_log_DRL.csv                                                          | CSV      |     -2,669 |          0 |         -1 |     -2,670 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_dist\sim_log_NMPC.csv                                                 | CSV      |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpc_sim_station_nodist\sim_log_NMPC.csv                                               | CSV      |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\mpn_sim_track_nodist\sim_log_NMPC.csv                                                 | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\nmpc_sim_logs\sim_log_nmpc.csv                                                        | CSV      |    -13,335 |          0 |         -1 |    -13,336 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_logs\sim_log_PID.csv                                                          | CSV      |    -13,335 |          0 |         -1 |    -13,336 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_dist_param4\sim_log_PID.csv                                           | CSV      |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_station_nodist_param4\sim_log_PID.csv                                         | CSV      |      7,502 |          0 |          1 |      7,503 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_dist\sim_log_PID.csv                                                    | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\logs\sim_logs\pid_sim_track_nodist\sim_log_PID.csv                                                  | CSV      |      5,002 |          0 |          1 |      5,003 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\main.py                                                                                             | Python   |         22 |          1 |          1 |         24 |
+| c:\Repos\Master_Thesis\Code\Otter-USV\Otter_API\monte_carlo_results.csv                                                                             | CSV      |         90 |          0 |          0 |         90 |
+| Total                                                                                                                                               |          |    480,180 |        337 |        618 |    481,135 |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
